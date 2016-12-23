@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
  * > 用户名是唯一不区分大小写的参数 <
  **/
 
-namespace EKIFVK.Todo.API.Controllers
+namespace EKIFVK.ChemicalLab.Controllers
 {
     /// <summary>
     /// 用户相关API
