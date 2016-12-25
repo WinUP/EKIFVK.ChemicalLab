@@ -44,6 +44,13 @@ namespace EKIFVK.ChemicalLab.Models
                 entity.HasKey(e => e.Name);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
             });
+            modelBuilder.Entity<PermissionGroup>(entity =>
+            {
+                entity.ToTable("PermissionGroup");
+                entity.HasKey(e => e.Name);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(64);
+                entity.Property(e => e.Permission).HasMaxLength(21485);
+            });
             modelBuilder.Entity<UserGroup>(entity =>
             {
                 entity.ToTable("UserGroup");
@@ -129,7 +136,7 @@ namespace EKIFVK.ChemicalLab.Models
                 entity.Property(e => e.Prefix).HasMaxLength(256);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(256);
                 entity.Property(e => e.Cas).HasColumnName("CAS");
-                entity.Property(e => e.Cas).IsRequired().HasMaxLength(192);
+                entity.Property(e => e.Cas).HasMaxLength(192);
                 entity.HasIndex(e => e.Cas).HasName("UN_CAS").IsUnique();
                 entity.Property(e => e.Note).HasMaxLength(256);
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
@@ -212,6 +219,7 @@ namespace EKIFVK.ChemicalLab.Models
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Location> Locations { get; set; }
         public DbSet<Permission> Permissions { get; set; }
+        public DbSet<PermissionGroup> PermissionGroups { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserGroup> UserGroups { get; set; }
         public DbSet<ModifyType> ModifyTypes { get; set; }

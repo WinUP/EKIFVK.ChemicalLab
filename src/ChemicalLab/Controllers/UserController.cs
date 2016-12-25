@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections;
 using System.Linq;
-using EKIFVK.DeusLegem.CreationSystem.API;
-using EKIFVK.Todo.API.Models;
-using EKIFVK.Todo.API.Services;
+using EKIFVK.ChemicalLab.Configurations;
+using EKIFVK.ChemicalLab.Models;
+using EKIFVK.ChemicalLab.Services.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
-/***
- * > 用户名是唯一不区分大小写的参数 <
- **/
+//! Username is not case sensitive
 
 namespace EKIFVK.ChemicalLab.Controllers
 {
     /// <summary>
-    /// 用户相关API
+    /// API for User Management
     /// <list type="bullet">
     /// <item><description>GET /{name} => GetInfo</description></item>
     /// <item><description>POST /{name} => Register</description></item>
@@ -27,94 +25,99 @@ namespace EKIFVK.ChemicalLab.Controllers
     /// </list>
     /// </summary>
     [Route("user")]
-    public class UserController : UserBasedController
+    public class UserController : BasicVerifiableController
     {
-        public UserController(DatabaseContext database, IPermissionService checker, IOptions<SystemConsts> consts)
-            : base(database, checker, consts) { }
+        public UserController(ChemicalLabContext database, IAuthentication verifier, IOptions<UserModuleConfiguration> configuration)
+            : base(database, verifier, configuration) { }
 
         /// <summary>
-        /// 获取用户信息<br />
+        /// Get user information<br />
         /// <br />
-        /// 权限：无<br />
-        /// 返回：200 SUCCESS -> name, usergroup, lastActiveTime, lastActiveIp, enabled[bool], description, tag<br />
+        /// Return：
         /// <list type="bullet">
-        /// <item><description>Token或用户不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>权限不足：403 权限验证失败组 -> null</description></item>
+        /// <item><description>{name, group, accessTime, accessAddress, allowMulti, disabled:bool, update}</description></item>
+        /// </list>
+        /// Error:
+        /// <list type="bullet">
+        /// <item><description>Not sign in：401 NotSignIn</description></item>
+        /// <item><description>No target user：401 NoTargetUser</description></item>
+        /// <item><description>Permission denied：403 [VerifyResult]</description></item>
         /// </list>
         /// </summary>
-        /// <param name="name">用户名</param>
+        /// <param name="name">Target user's name</param>
         /// <returns></returns>
         [HttpGet("{name}")]
         public JsonResult GetInfo(string name)
         {
             var user = FindUser();
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            var verifyResult = Checker.Verify(user, HttpContext.Connection.RemoteIpAddress.ToString(), Consts.Value.PERM_USER_MANAGE);
-            if (verifyResult != PermissionService.VerifyResult.Authorized)
-                return JsonResponse(StatusCodes.Status403Forbidden, Checker.ToString(verifyResult));
+            if (user == null) return BasicResponse(StatusCodes.Status401Unauthorized, Configuration.Value.NotSignIn);
+            if (!Verify(user, Configuration.Value.UserManagePermission, out var verifyResult)) return Basic403(verifyResult);
             user = FindUser(name);
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            return JsonResponse(data: new Hashtable
+            if (user == null) return BasicResponse(StatusCodes.Status401Unauthorized, Configuration.Value.NoTargetUser);
+            return BasicResponse(data: new Hashtable
             {
                 {"name", user.Name},
-                {"usergroup", user.UsergroupNavigation.Name},
-                {"lastActiveTime", user.LastActiveTime},
-                {"lastAccessIp", user.LastAccessIp},
-                {"enabled", user.Enabled},
-                {"description", user.Description},
-                {"tag", user.Tag}
+                {"group", user.UserGroupNavigation.Name},
+                {"accessTime", user.LastAccessTime},
+                {"accessAddress", user.LastAccessAddress},
+                {"allowMulti", user.AllowMultiAddressLogin},
+                {"disabled", user.Disabled},
+                {"update", user.LastUpdate}
             });
         }
 
         /// <summary>
-        /// 注册<br />
+        /// Register<br />
         /// <br />
-        /// 权限：无<br />
-        /// 返回：200 SUCCESS -> null<br />
+        /// Return：
         /// <list type="bullet">
-        /// <item><description>用户名不合法：400 INVALID_NAME -> null</description></item>
-        /// <item><description>密码不合法：400 INVALID_PASSWORD -> null</description></item>
-        /// <item><description>同名用户已存在：409 ALREADY_EXIST -> null</description></item>
+        /// <item><description>{id}</description></item>
+        /// </list>
+        /// Error:
+        /// <list type="bullet">
+        /// <item><description>Not sign in：401 NOT_SIGN_IN</description></item>
+        /// <item><description>Permission denied：403 [VerifyResult]</description></item>
+        /// <item><description>Invalid username format：400 INVALID_USERNAME_FORMAT</description></item>
+        /// <item><description>Invalid password format：400 INVALID_PASSWORD_FORMAT</description></item>
+        /// <item><description>User already exist：409 USER_ALREADY_EXIST</description></item>
         /// </list>
         /// </summary>
-        /// <param name="config">系统设置服务（由依赖注入提供）</param>
-        /// <param name="name">用户名（不能包含/\.）</param>
+        /// <param name="name">Username (cannot have /\.)</param>
         /// <param name="parameter">
-        /// 来自Body的参数<br />
+        /// Paramaters<br />
         /// <list type="bullet">
-        /// <item><description>password: 密码的SHA256字串（大写）</description></item>
-        /// <item><description>tag: 附加数据</description></item>
+        /// <item><description>password: Uppercase SHA256 of password</description></item>
         /// </list>
         /// </param>
         /// <returns></returns>
         [HttpPost("{name}")]
-        public JsonResult Register([FromServices] IOptions<SystemConfig> config, string name, [FromBody] Hashtable parameter)
+        public JsonResult Register(string name, [FromBody] Hashtable parameter)
         {
+            var user = FindUser();
+            if (user == null) return BasicResponse(StatusCodes.Status401Unauthorized, Configuration.Value.NotSignIn);
+            var verifyResult = Verify(user, Configuration.Value.UserAddingPermission);
+            if (verifyResult != VerifyResult.Passed) return Basic403(verifyResult);
             if (string.IsNullOrEmpty(name) ||
                 name.IndexOf("/", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
-                return JsonResponse(StatusCodes.Status400BadRequest, Consts.Value.INVALID_NAME);
+                return BasicResponse(StatusCodes.Status400BadRequest, Configuration.Value.InvalidUsernameFormat);
             var password = parameter["password"].ToString();
             if (password.ToUpper() != password || password.Length != 64)
-                return JsonResponse(StatusCodes.Status400BadRequest, Consts.Value.INVALID_PASSWORD);
-            var user = FindUser(name);
-            if (user != null)
-                return JsonResponse(StatusCodes.Status409Conflict, Consts.Value.ALREADY_EXIST);
-            var normalUsergroupId = config.Value.NormalUsergroup;
-            user = new SystemUser
+                return BasicResponse(StatusCodes.Status400BadRequest, Configuration.Value.InvalidPasswordFormat);
+            user = FindUser(name);
+            if (user != null) return BasicResponse(StatusCodes.Status409Conflict, Configuration.Value.UserAlreadyExist);
+            var normalUsergroupId = Configuration.Value.NormalUserGroup;
+            user = new User
             {
                 Name = name,
                 Password = password,
-                Tag = parameter["tag"].ToString(),
-                Enabled = true,
-                UsergroupNavigation = Database.SystemUsergroup.FirstOrDefault(e => e.Id == normalUsergroupId)
+                UserGroupNavigation = Database.UserGroups.FirstOrDefault(e => e.Id == normalUsergroupId),
+                LastUpdate = DateTime.Now
             };
-            Database.SystemUser.Add(user);
+            Database.Users.Add(user);
             Database.SaveChanges();
-            return JsonResponse();
+            return BasicResponse(data: user.Id);
         }
 
         /// <summary>
@@ -150,7 +153,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             user.LastActiveTime = DateTime.Now;
             user.LastAccessIp = HttpContext.Connection.RemoteIpAddress.ToString();
             Database.SaveChanges();
-            return JsonResponse(data: token);
+            return BasicResponse(data: token);
         }
 
         /// <summary>
@@ -189,7 +192,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             {
                 return JsonResponse(StatusCodes.Status500InternalServerError, ex.Message, Consts.Value.SERVER_ERROR);
             }
-            return JsonResponse();
+            return BasicResponse();
         }
 
         [HttpPatch("{name}")]
@@ -247,7 +250,7 @@ namespace EKIFVK.ChemicalLab.Controllers
                 return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.PERMISSION_DENIED);
             user.AccessToken = null;
             Database.SaveChanges();
-            return JsonResponse();
+            return BasicResponse();
         }
 
         /// <summary>
@@ -278,7 +281,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             } else
                 user.Password = newPassword;
             Database.SaveChanges();
-            return JsonResponse();
+            return BasicResponse();
         }
 
         /// <summary>
@@ -310,7 +313,7 @@ namespace EKIFVK.ChemicalLab.Controllers
                 return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
             user.UsergroupNavigation = group;
             Database.SaveChanges();
-            return JsonResponse();
+            return BasicResponse();
         }
 
         /// <summary>
@@ -346,7 +349,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             else
                 user.Description = data;
             Database.SaveChanges();
-            return JsonResponse();
+            return BasicResponse();
         }
 
         /// <summary>
@@ -377,7 +380,7 @@ namespace EKIFVK.ChemicalLab.Controllers
                 return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
             user.Enabled = enabled;
             Database.SaveChanges();
-            return JsonResponse();
+            return BasicResponse();
         }
 
         /// <summary>

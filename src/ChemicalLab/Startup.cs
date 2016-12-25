@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MySQL.Data.EntityFrameworkCore.Extensions;
 using EKIFVK.ChemicalLab.Models;
 using EKIFVK.ChemicalLab.Configurations;
+using EKIFVK.ChemicalLab.Services;
 using EKIFVK.ChemicalLab.Services.Authentication;
 
 namespace EKIFVK.ChemicalLab
