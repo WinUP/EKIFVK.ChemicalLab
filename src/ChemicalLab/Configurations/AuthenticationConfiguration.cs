@@ -3,6 +3,7 @@
     public class AuthenticationConfiguration
     {
         public double TokenAvaliableMinutes { get; set; }
+        public string TokenHttpHeaderKey { get; set; }
 
         public string VerifyPassed { get; set; }
         public string VerifyDenied { get; set; }

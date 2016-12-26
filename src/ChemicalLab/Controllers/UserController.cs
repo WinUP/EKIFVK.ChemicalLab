@@ -1,12 +1,16 @@
 ﻿using System;
-using System.Collections;
 using System.Linq;
-using EKIFVK.ChemicalLab.Configurations;
-using EKIFVK.ChemicalLab.Models;
-using EKIFVK.ChemicalLab.Services.Authentication;
-using Microsoft.AspNetCore.Http;
+using System.Collections;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
+using EKIFVK.ChemicalLab.Models;
+using EKIFVK.ChemicalLab.SearchFilter;
+using EKIFVK.ChemicalLab.Configurations;
+using EKIFVK.ChemicalLab.Services.Authentication;
 
 //! Username is not case sensitive
 
@@ -17,9 +21,10 @@ namespace EKIFVK.ChemicalLab.Controllers
     /// <list type="bullet">
     /// <item><description>GET /{name} => GetInfo</description></item>
     /// <item><description>POST /{name} => Register</description></item>
-    /// <item><description>PUT /{name} => Login</description></item>
+    /// <item><description>PUT /{name}/token => SignIn</description></item>
+    /// <item><description>DELETE /{name}/token => SignOut</description></item>
     /// <item><description>DELETE /{name} => Delete</description></item>
-    /// <item><description>PATCH /{name} => RouteHttpPatch</description></item>
+    /// <item><description>PATCH /{name} => ChangeUserInformation</description></item>
     /// <item><description>GET /.count => GetUserCount</description></item>
     /// <item><description>GET /.list => GetUserList</description></item>
     /// </list>
@@ -27,33 +32,39 @@ namespace EKIFVK.ChemicalLab.Controllers
     [Route("user")]
     public class UserController : BasicVerifiableController
     {
+        private readonly IOptions<UserModuleConfiguration> _configuration;
+
         public UserController(ChemicalLabContext database, IAuthentication verifier, IOptions<UserModuleConfiguration> configuration)
-            : base(database, verifier, configuration) { }
+            : base(database, verifier)
+        {
+            _configuration = configuration;
+        }
 
         /// <summary>
         /// Get user information<br />
         /// <br />
-        /// Return：
+        /// Permission Group
+        /// <list type="bullet">
+        /// <item><description>UserManagePermission</description></item>
+        /// </list>
+        /// Returned Value
         /// <list type="bullet">
         /// <item><description>{name, group, accessTime, accessAddress, allowMulti, disabled:bool, update}</description></item>
         /// </list>
-        /// Error:
+        /// Probable Errors
         /// <list type="bullet">
-        /// <item><description>Not sign in：401 NotSignIn</description></item>
-        /// <item><description>No target user：401 NoTargetUser</description></item>
-        /// <item><description>Permission denied：403 [VerifyResult]</description></item>
+        /// <item><description>No target user: 404 NoTargetUser</description></item>
+        /// <item><description>Permission denied: 403 [VerifyResult]</description></item>
         /// </list>
         /// </summary>
         /// <param name="name">Target user's name</param>
-        /// <returns></returns>
         [HttpGet("{name}")]
         public JsonResult GetInfo(string name)
         {
             var user = FindUser();
-            if (user == null) return BasicResponse(StatusCodes.Status401Unauthorized, Configuration.Value.NotSignIn);
-            if (!Verify(user, Configuration.Value.UserManagePermission, out var verifyResult)) return Basic403(verifyResult);
+            if (!Verify(user, _configuration.Value.UserManagePermission, out var verifyResult)) return Basic403(verifyResult);
             user = FindUser(name);
-            if (user == null) return BasicResponse(StatusCodes.Status401Unauthorized, Configuration.Value.NoTargetUser);
+            if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
             return BasicResponse(data: new Hashtable
             {
                 {"name", user.Name},
@@ -69,45 +80,46 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <summary>
         /// Register<br />
         /// <br />
-        /// Return：
+        /// Permission Group
         /// <list type="bullet">
-        /// <item><description>{id}</description></item>
+        /// <item><description>UserAddingPermission</description></item>
         /// </list>
-        /// Error:
+        /// Returned Value
         /// <list type="bullet">
-        /// <item><description>Not sign in：401 NOT_SIGN_IN</description></item>
-        /// <item><description>Permission denied：403 [VerifyResult]</description></item>
-        /// <item><description>Invalid username format：400 INVALID_USERNAME_FORMAT</description></item>
-        /// <item><description>Invalid password format：400 INVALID_PASSWORD_FORMAT</description></item>
-        /// <item><description>User already exist：409 USER_ALREADY_EXIST</description></item>
+        /// <item><description>id:int</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>Permission denied: 403 [VerifyResult]</description></item>
+        /// <item><description>Invalid username format: 400 InvalidUsernameFormat</description></item>
+        /// <item><description>Invalid password format: 400 InvalidPasswordFormat</description></item>
+        /// <item><description>User already exist: 409 UserAlreadyExist</description></item>
         /// </list>
         /// </summary>
-        /// <param name="name">Username (cannot have /\.)</param>
+        /// <param name="name">User's name (cannot have /\?, first letter cannot be .)</param>
         /// <param name="parameter">
-        /// Paramaters<br />
+        /// Parameters<br />
         /// <list type="bullet">
         /// <item><description>password: Uppercase SHA256 of password</description></item>
         /// </list>
         /// </param>
-        /// <returns></returns>
         [HttpPost("{name}")]
         public JsonResult Register(string name, [FromBody] Hashtable parameter)
         {
             var user = FindUser();
-            if (user == null) return BasicResponse(StatusCodes.Status401Unauthorized, Configuration.Value.NotSignIn);
-            var verifyResult = Verify(user, Configuration.Value.UserAddingPermission);
-            if (verifyResult != VerifyResult.Passed) return Basic403(verifyResult);
+            if (!Verify(user, _configuration.Value.UserAddingPermission, out var verifyResult)) return Basic403(verifyResult);
             if (string.IsNullOrEmpty(name) ||
                 name.IndexOf("/", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
+                name.IndexOf("?", StringComparison.Ordinal) > -1 ||
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
-                return BasicResponse(StatusCodes.Status400BadRequest, Configuration.Value.InvalidUsernameFormat);
+                return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidUsernameFormat);
             var password = parameter["password"].ToString();
             if (password.ToUpper() != password || password.Length != 64)
-                return BasicResponse(StatusCodes.Status400BadRequest, Configuration.Value.InvalidPasswordFormat);
+                return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidPasswordFormat);
             user = FindUser(name);
-            if (user != null) return BasicResponse(StatusCodes.Status409Conflict, Configuration.Value.UserAlreadyExist);
-            var normalUsergroupId = Configuration.Value.NormalUserGroup;
+            if (user != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.UserAlreadyExist);
+            var normalUsergroupId = _configuration.Value.DefaultUserGroup;
             user = new User
             {
                 Name = name,
@@ -121,294 +133,290 @@ namespace EKIFVK.ChemicalLab.Controllers
         }
 
         /// <summary>
-        /// 用户登陆<br />
+        /// User sign in<br />
         /// <br />
-        /// 权限：无<br />
-        /// 返回：200 SUCCESS -> token<br />
+        /// Permission Group
         /// <list type="bullet">
-        /// <item><description>用户不存在：401 INVALID_USERNAME -> null</description></item>
-        /// <item><description>密码不正确：403 INVALID_PASSWORD -> null</description></item>
-        /// <item><description>登陆太频繁：403 LOGIN_TOOCLOSE -> null</description></item>
+        /// <item><description>NULL</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>token</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>No target user: 404 NoTargetUser</description></item>
+        /// <item><description>User is disabled: 403 DisabledUser</description></item>
         /// </list>
         /// </summary>
-        /// <param name="config">系统设置服务（由依赖注入提供）</param>
-        /// <param name="name">用户名</param>
-        /// <param name="password">密码的SHA256结果（大写表示）</param>
-        [HttpPut("{name}")]
-        public JsonResult Login([FromServices] IOptions<SystemConfig> config, string name, string password)
+        /// <param name="name">User's name</param>
+        /// <param name="password">Uppercase SHA256 of password</param>
+        [HttpPut("{name}/token")]
+        public JsonResult SignIn(string name, string password)
         {
             var user = FindUser(name);
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            if (user.Password != password)
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.INVALID_PASSWORD);
-            if (user.LastActiveTime?.AddSeconds(config.Value.ClosestLoginTimespan) > DateTime.Now)
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.LOGIN_TOOCLOSE);
-            var group = Database.SystemUsergroup.FirstOrDefault(e => e.Id == user.Usergroup);
-            if(!user.Enabled || !group.Enabled)
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.LOGIN_DENIED);
+            if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
+            if (user.Password != password) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.WrongPassword);
+            if (user.Disabled) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
+            var group = Database.UserGroups.FirstOrDefault(e => e.Id == user.UserGroup);
+            if (group.Disabled) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
             var token = Guid.NewGuid().ToString().ToUpper();
             user.AccessToken = token;
-            Checker.UpdateAccessTime(user);
-            user.LastActiveTime = DateTime.Now;
-            user.LastAccessIp = HttpContext.Connection.RemoteIpAddress.ToString();
+            Verifier.UpdateAccessTime(user);
+            Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
             Database.SaveChanges();
             return BasicResponse(data: token);
         }
 
         /// <summary>
-        /// 删除用户<br />
+        /// User sign out<br />
         /// <br />
-        /// 权限：USER:MANAGE &amp; 删除的不是自己<br />
-        /// 返回：200 SUCCESS -> null<br />
+        /// Permission Group
         /// <list type="bullet">
-        /// <item><description>Token或用户不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>权限不足：403 权限验证失败组 -> null</description></item>
-        /// <item><description>数据库操作失败：500 SERVER_ERROR -> exception</description></item>
+        /// <item><description>NULL</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>NULL</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>Cannot find current user: 403 [VerifyResult.NonexistentToken]</description></item>
+        /// <item><description>Cannot sign out other user: 403 CannotSignOutOthers</description></item>
         /// </list>
         /// </summary>
-        /// <param name="name">用户名</param>
+        /// <param name="name">User's name</param>
         /// <returns></returns>
+        [HttpDelete("{name}/token")]
+        public JsonResult SignOut(string name)
+        {
+            var user = FindUser();
+            if (user == null) return Basic403NonexistentToken();
+            if (!IsNameEqual(user.Name, name)) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotSingOutOthers);
+            user.AccessToken = null;
+            Verifier.UpdateAccessTime(user);
+            Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
+            Database.SaveChanges();
+            return BasicResponse();
+        }
+
+        /// <summary>
+        /// Detele user<br />
+        /// <br />
+        /// Permission Group
+        /// <list type="bullet">
+        /// <item><description>UserDeletePermission</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>NULL</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>Permission denied: 403 [VerifyResult]</description></item>
+        /// <item><description>Cannot remove self: 403 CannotRemoveSelf</description></item>
+        /// <item><description>No target user: 404 NoTargetUser</description></item>
+        /// </list>
+        /// </summary>
+        /// <param name="name">User's name</param>
         [HttpDelete("{name}")]
         public JsonResult Delete(string name)
         {
             var user = FindUser();
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            if (Equals(user.Name, name))
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.PERMISSION_DENIED);
-            var verifyResult = Checker.Verify(user, HttpContext.Connection.RemoteIpAddress.ToString(), Consts.Value.PERM_USER_MANAGE);
-            if (verifyResult != PermissionService.VerifyResult.Authorized)
-                return JsonResponse(StatusCodes.Status403Forbidden, Checker.ToString(verifyResult));
+            if (!Verify(user, _configuration.Value.UserDeletePermission, out var verifyResult)) return Basic403(verifyResult);
+            if (IsNameEqual(user.Name, name)) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotRemoveSelf);
             user = FindUser(name);
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            try
-            {
-                Database.SystemUser.Remove(user);
-                Database.SaveChanges();
-            }
-            catch (Exception ex)
-            {
-                return JsonResponse(StatusCodes.Status500InternalServerError, ex.Message, Consts.Value.SERVER_ERROR);
-            }
+            if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
+            user.Disabled = true;
+            Database.SaveChanges();
             return BasicResponse();
         }
 
+        /// <summary>
+        /// Modify user's information<br />
+        /// <br />
+        /// Permission Group
+        /// <list type="bullet">
+        /// <item><description>UserResetPasswordPermission (only for change password)</description></item>
+        /// <item><description>UserChangeGroupPermission (only for change usergroup)</description></item>
+        /// <item><description>UserModifyPermission (only for change multiple address sign in)</description></item>
+        /// <item><description>UserDisablePermission (only for change disabled)</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>{password?:bool, group?:bool, allowMulti?:bool, disabled?:bool}</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>Permission denied: 403 [VerifyResult]</description></item>
+        /// <item><description>Cannot change self's usergroup: 403 CannotChangeSelfGroup</description></item>
+        /// <item><description>Cannot disable or enable self: 403 CannotDisableSelf</description></item>
+        /// <item><description>No target user: 404 NoTargetUser</description></item>
+        /// <item><description>No target usergroup: 404 NoTargetGroup</description></item>
+        /// </list>
+        /// </summary>
+        /// <param name="name">Target user's name</param>
+        /// <param name="parameter">
+        /// Parameters<br />
+        /// <list type="bullet">
+        /// <item><description>password: new password (optional, or let it empty to reset password)</description></item>
+        /// <item><description>group: new usergroup (optional)</description></item>
+        /// <item><description>allowMulti: new value of allow multiple address (optional)</description></item>
+        /// <item><description>disabled: new value of disabled (optional)</description></item>
+        /// </list>
+        /// </param>
         [HttpPatch("{name}")]
-        public JsonResult RouteHttpPatch(string name, [FromBody] Hashtable parameter)
+        public JsonResult ChangeUserInformation(string name, [FromBody] Hashtable parameter)
         {
-            var user = FindUser();
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            JsonResult answer;
-            var operation = parameter["operation"].ToString();
-            var data = parameter["data"];
-            switch (operation)
+            var currentUser = FindUser();
+            if (currentUser == null) return Basic403NonexistentToken();
+            var targetUser = FindUser(name);
+            if (targetUser == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
+            var finalData = new JObject();
+            if (parameter.ContainsKey("password"))
             {
-                case "token":
-                    answer = Logout(user, name);
-                    break;
-                case "password":
-                    answer = ChangePassword(user, name, (string) data);
-                    break;
-                case "group":
-                    answer = ChangeUsergroup(user, name, (string) data);
-                    break;
-                case "tag":
-                    answer = ChangeTagOrDescription(user, name, (string) data, true);
-                    break;
-                case "description":
-                    answer = ChangeTagOrDescription(user, name, (string) data, false);
-                    break;
-                case "enabled":
-                    answer = ChangeEnabled(user, name, (bool) data);
-                    break;
-                default:
-                    answer = JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-                    break;
+                if (currentUser != targetUser)
+                {
+                    if (!Verify(currentUser, _configuration.Value.UserResetPasswordPermission, out var verifyResult)) return Basic403(verifyResult, finalData);
+                    targetUser.Password = _configuration.Value.DefaulPasswordHash;
+                }
+                else
+                    targetUser.Password = parameter["password"].ToString();
+                finalData.Add("password", true);
             }
-            return answer;
-        }
-
-        /// <summary>
-        /// 用户注销<br />
-        /// <br />
-        /// 权限：无<br />
-        /// 返回：200 SUCCESS -> null<br />
-        /// <list type="bullet">
-        /// <item><description>Token不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>尝试注销其他用户：403 PERMISSION_DENIED -> null</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="user">当前会话的用户</param>
-        /// <param name="name">用户名</param>
-        /// <returns></returns>
-        public JsonResult Logout(SystemUser user, string name)
-        {
-            if (!Equals(user.Name, name))
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.PERMISSION_DENIED);
-            user.AccessToken = null;
-            Database.SaveChanges();
-            return BasicResponse();
-        }
-
-        /// <summary>
-        /// 修改或重置用户密码<br />
-        /// <br />
-        /// 权限：USER:PATCH（重置密码时）<br />
-        /// 返回：200 SUCCESS -> null<br />
-        /// <list type="bullet">
-        /// <item><description>Token或用户不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>权限不足：403 权限验证失败组 -> null</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="user">当前会话的用户</param>
-        /// <param name="name">用户名</param>
-        /// <param name="newPassword">新的密码（重置密码时不需要）</param>
-        /// <returns></returns>
-        public JsonResult ChangePassword(SystemUser user, string name, string newPassword)
-        {
-            if (!Equals(user.Name, name))
+            if (parameter.ContainsKey("group"))
             {
-                var verifyResult = Checker.Verify(user, HttpContext.Connection.RemoteIpAddress.ToString(), Consts.Value.PERM_USER_PATCH);
-                if (verifyResult != PermissionService.VerifyResult.Authorized)
-                    return JsonResponse(StatusCodes.Status403Forbidden, Checker.ToString(verifyResult));
-                user = FindUser(name);
-                if (user == null)
-                    return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-                user.Password = Consts.Value.NORMAL_PASSWORD;
-            } else
-                user.Password = newPassword;
-            Database.SaveChanges();
-            return BasicResponse();
-        }
-
-        /// <summary>
-        /// 修改用户的用户组<br />
-        /// <br />
-        /// 权限：USER:GROUPPATCH &amp; 修改的不是自己的用户组<br />
-        /// 返回：200 SUCCESS -> null<br />
-        /// <list type="bullet">
-        /// <item><description>Token、用户或用户组不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>权限不足：403 权限验证失败组 -> null</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="user">当前会话的用户</param>
-        /// <param name="name">用户名</param>
-        /// <param name="newGroup">新的用户组</param>
-        /// <returns></returns>
-        public JsonResult ChangeUsergroup(SystemUser user, string name, string newGroup)
-        {
-            if (Equals(user.Name, name))
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.PERMISSION_DENIED);
-            var verifyResult = Checker.Verify(user, HttpContext.Connection.RemoteIpAddress.ToString(), Consts.Value.PERM_USER_GROUPPATCH);
-            if (verifyResult != PermissionService.VerifyResult.Authorized)
-                return JsonResponse(StatusCodes.Status403Forbidden, Checker.ToString(verifyResult));
-            user = FindUser(name);
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            var group = Database.SystemUsergroup.FirstOrDefault(e => e.Name == newGroup);
-            if (group == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            user.UsergroupNavigation = group;
-            Database.SaveChanges();
-            return BasicResponse();
-        }
-
-        /// <summary>
-        /// 修改用户的附加数据或描述<br />
-        /// <br />
-        /// 权限：USER:PATCH（修改其他用户的附加数据或描述时）<br />
-        /// 返回：200 SUCCESS -> null<br />
-        /// <list type="bullet">
-        /// <item><description>Token或用户不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>权限不足：403 权限验证失败组 -> null</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="user">当前会话的用户</param>
-        /// <param name="name">用户名</param>
-        /// <param name="data">新的数据</param>
-        /// <param name="isChangeTag">修改的是否是附加数据（为False时修改描述）</param>
-        /// <returns></returns>
-        public JsonResult ChangeTagOrDescription(SystemUser user, string name, string data, bool isChangeTag)
-        {
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            if (!Equals(user.Name, name))
-            {
-                var verifyResult = Checker.Verify(user, HttpContext.Connection.RemoteIpAddress.ToString(), Consts.Value.PERM_USER_PATCH);
-                if (verifyResult != PermissionService.VerifyResult.Authorized)
-                    return JsonResponse(StatusCodes.Status403Forbidden, Checker.ToString(verifyResult));
-                user = FindUser(name);
-                if (user == null)
-                    return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
+                if (currentUser == targetUser)
+                    return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotChangeSelfGroup, finalData);
+                if (!Verify(currentUser, _configuration.Value.UserChangeGroupPermission, out var verifyResult)) return Basic403(verifyResult, finalData);
+                var group = Database.UserGroups.FirstOrDefault(e => e.Name == parameter["group"].ToString());
+                if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup, finalData);
+                targetUser.UserGroupNavigation = group;
+                finalData.Add("group", true);
             }
-            if (isChangeTag)
-                user.Tag = data;
+            if (parameter.ContainsKey("allowMulti"))
+            {
+                if (currentUser != targetUser && !Verify(currentUser, _configuration.Value.UserModifyPermission, out var verifyResult))
+                    return Basic403(verifyResult, finalData);
+                targetUser.AllowMultiAddressLogin = (bool) parameter["allowMulti"];
+                finalData.Add("allowMulti", true);
+            }
+            if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
+            {
+                if (currentUser == targetUser)
+                    return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf, finalData);
+                if (!Verify(currentUser, _configuration.Value.UserDisablePermission, out var verifyResult))
+                    return Basic403(verifyResult, finalData);
+                targetUser.Disabled = (bool)parameter["allowMulti"];
+                finalData.Add("disabled", true);
+            }
+            return BasicResponse(data: finalData);
+        }
+
+        private string QueryGenerator(UserSearchFilter filter, ICollection<object> param)
+        {
+            //? MySql connector for .net core still does not support Take() and Skip() in this version
+            //? which means we can only form SQL query manually
+            //? Also, LIMIT in mysql has significant performnce issue so we will not use LIMIT
+            var condition = new List<string>();
+            var paramCount = -1;
+            if (!string.IsNullOrEmpty(filter.Name))
+            {
+                condition.Add("Name LIKE concat('%',@p" + ++paramCount + ",'%')");
+                param.Add(filter.Name);
+            }
+            if (!string.IsNullOrEmpty(filter.Group))
+            {
+                var group = Database.UserGroups.FirstOrDefault(e => e.Name == filter.Group);
+                if (group != null)
+                {
+                    condition.Add("UserGroup = @p" + ++paramCount);
+                    param.Add(group.Id);
+                }
+            }
+            if (filter.Disabled.HasValue)
+            {
+                condition.Add("Disabled = @p" + ++paramCount);
+                param.Add(filter.Disabled.Value ? 1 : 0);
+            }
+            var query = "";
+            if (condition.Count > 0) query = " WHERE " + string.Join(" AND ", condition);
+            if (filter.Skip.HasValue && filter.Skip.Value > 0)
+            {
+                query = "SELECT * FROM User WHERE ID >= (SELECT ID FROM User" + query + " ORDER BY ID LIMIT @p" + ++paramCount +
+                        ",1)";
+                param.Add(filter.Skip.Value);
+            }
             else
-                user.Description = data;
-            Database.SaveChanges();
-            return BasicResponse();
+                query = "SELECT * FROM User" + query;
+            if (filter.Take.HasValue)
+            {
+                query += " LIMIT @p" + ++paramCount;
+                param.Add(filter.Take.Value);
+            }
+            return query;
         }
 
         /// <summary>
-        /// 启用或禁用用户<br />
+        /// Get user's total count<br />
         /// <br />
-        /// 权限：USER:ENABLE &amp; 不是修改自己<br />
-        /// 返回：200 SUCCESS -> null<br />
+        /// Permission Group
         /// <list type="bullet">
-        /// <item><description>Token或用户不存在：401 INVALID_NAME -> null</description></item>
-        /// <item><description>权限不足：403 权限验证失败组 -> null</description></item>
+        /// <item><description>NULL</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>{count:int}</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>NULL</description></item>
         /// </list>
         /// </summary>
-        /// <param name="user">当前会话的用户</param>
-        /// <param name="name">用户名</param>
-        /// <param name="enabled">是否启用用户</param>
-        /// <returns></returns>
-        public JsonResult ChangeEnabled(SystemUser user, string name, bool enabled)
-        {
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            if (Equals(user.Name, name))
-                return JsonResponse(StatusCodes.Status403Forbidden, Consts.Value.PERMISSION_DENIED);
-            var verifyResult = Checker.Verify(user, HttpContext.Connection.RemoteIpAddress.ToString(), Consts.Value.PERM_USER_ENABLE);
-            if (verifyResult != PermissionService.VerifyResult.Authorized)
-                return JsonResponse(StatusCodes.Status403Forbidden, Checker.ToString(verifyResult));
-            user = FindUser(name);
-            if (user == null)
-                return JsonResponse(StatusCodes.Status401Unauthorized, Consts.Value.INVALID_NAME);
-            user.Enabled = enabled;
-            Database.SaveChanges();
-            return BasicResponse();
-        }
-
-        /// <summary>
-        /// 获取用户数量<br />
-        /// <br />
-        /// 权限：无<br />
-        /// 返回：200 SUCCESS -> count[int]<br />
-        /// </summary>
-        /// <returns></returns>
+        /// <param name="filter">Search filter</param>
         [HttpGet(".count")]
-        public JsonResult GetUserCount()
-        { 
-            return JsonResponse(data: Database.SystemUser.Count().ToString());
+        public JsonResult GetUserCount(UserSearchFilter filter)
+        {
+            var param = new List<object>();
+            var query = QueryGenerator(filter, param);
+            return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Count());
         }
 
         /// <summary>
-        /// 获取用户名列表<br />
+        /// Get list of users<br />
         /// <br />
-        /// 权限：无<br />
-        /// 返回：200 SUCCESS -> name[]<br />
+        /// Permission Group
+        /// <list type="bullet">
+        /// <item><description>UserManagePermission</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>[{name, group, accessTime, accessAddress, allowMulti, disabled:bool, update}]</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>NULL</description></item>
+        /// </list>
         /// </summary>
-        /// <param name="skip">跳过的数据条数</param>
-        /// <param name="count">获取的数据条数</param>
+        /// <param name="filter">Search filter</param>
         /// <returns></returns>
         [HttpGet(".list")]
-        public JsonResult GetUserList(int skip, int count)
+        public JsonResult GetUserList(UserSearchFilter filter)
         {
-            return JsonResponse(data: Database.SystemUser.Skip(skip).Take(count).Select(e=> e.Name));
+            var user = FindUser();
+            if (!Verify(user, _configuration.Value.UserManagePermission, out var verifyResult)) return Basic403(verifyResult);
+            var param = new List<object>();
+            var query = QueryGenerator(filter, param);
+            return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Select(e => new Hashtable
+            {
+                {"name", user.Name},
+                {"group", user.UserGroupNavigation.Name},
+                {"accessTime", user.LastAccessTime},
+                {"accessAddress", user.LastAccessAddress},
+                {"allowMulti", user.AllowMultiAddressLogin},
+                {"disabled", user.Disabled},
+                {"update", user.LastUpdate}
+            }).ToArray());
         }
     }
 }

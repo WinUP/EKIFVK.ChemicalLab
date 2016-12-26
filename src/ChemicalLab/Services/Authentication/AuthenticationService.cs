@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using EKIFVK.ChemicalLab.Models;
@@ -25,42 +26,34 @@ namespace EKIFVK.ChemicalLab.Services.Authentication
 
         public string FindToken(IHeaderDictionary header)
         {
-            return !header.TryGetValue("X-Access-Token", out var token) ? "" : token.ToString();
+            return !header.TryGetValue(_config.Value.TokenHttpHeaderKey, out var token) ? "" : token.ToString();
         }
 
-        public VerifyResult Verify(string token, string[] permissions, string ip = "")
+        public VerifyResult Verify(string token, string permissionGroup, IPAddress address = null)
         {
-            if (!IsTokenValid(token)) return VerifyResult.Invalid;
-            var user = _database.Users.FirstOrDefault(e => e.AccessToken == token);
-            return Verify(user, permissions, ip);
+            return IsTokenValid(token) ? Verify(_database.Users.FirstOrDefault(e => e.AccessToken == token), permissionGroup, address) : VerifyResult.InvalidFormat;
         }
 
-        public VerifyResult Verify(string token, string permission, string ip = "")
+        public VerifyResult Verify(User user, string permissionGroup, IPAddress address = null)
         {
-            return Verify(token, new[] {permission}, ip);
-        }
-
-        public VerifyResult Verify(User user, string[] permissions, string ip = "")
-        {
-            if (user == null) return VerifyResult.Nonexistent;
+            if (user == null) return VerifyResult.NonexistentToken;
             if (user.Disabled) return VerifyResult.Denied;
             var group = user.UserGroupNavigation ?? _database.UserGroups.FirstOrDefault(e => e.Id == user.UserGroup);
             if (group.Disabled) return VerifyResult.Denied;
             if (!user.LastAccessTime.HasValue ||
                 user.LastAccessTime.Value.AddMinutes(_config.Value.TokenAvaliableMinutes) < DateTime.Now)
                 return VerifyResult.Expired;
-            if (!string.IsNullOrEmpty(ip) && !string.IsNullOrEmpty(user.LastAccessAddress) &&
-                user.LastAccessAddress != ip && !user.AllowMultiAddressLogin) return VerifyResult.Denied;
+            if (address != null && !string.IsNullOrEmpty(user.LastAccessAddress) &&
+                user.LastAccessAddress != address.ToString() && !user.AllowMultiAddressLogin) return VerifyResult.Denied;
             UpdateAccessTime(user);
+            UpdateAccessAddress(user, address);
+            var permissionGroupInstance = _database.PermissionGroups.FirstOrDefault(e => e.Name == permissionGroup);
+            if (permissionGroupInstance == null) return VerifyResult.NonexistentGroup;
+            var permissions = permissionGroupInstance.Permission.Split(' ');
             if (permissions.Length == 0 || permissions.Length == 1 && string.IsNullOrEmpty(permissions[0]))
                 return VerifyResult.Passed;
             var userPermissions = group.Permission.Split(' ');
             return userPermissions.Any(e => permissions.All(p => p != e)) ? VerifyResult.Denied : VerifyResult.Passed;
-        }
-
-        public VerifyResult Verify(User user, string permission, string ip = "")
-        {
-            return Verify(user, new[] { permission }, ip);
         }
 
         public void UpdateAccessTime(string token)
@@ -76,6 +69,19 @@ namespace EKIFVK.ChemicalLab.Services.Authentication
             _database.SaveChanges();
         }
 
+        public void UpdateAccessAddress(string token, IPAddress address)
+        {
+            if (!IsTokenValid(token)) return;
+            var user = _database.Users.FirstOrDefault(e => e.AccessToken == token);
+            UpdateAccessAddress(user, address);
+        }
+
+        public void UpdateAccessAddress(User user, IPAddress address)
+        {
+            user.LastAccessAddress = address.ToString();
+            _database.SaveChanges();
+        }
+
         public string ToString(VerifyResult result)
         {
             switch (result)
@@ -84,9 +90,9 @@ namespace EKIFVK.ChemicalLab.Services.Authentication
                     return _config.Value.VerifyPassed;
                 case VerifyResult.Denied:
                     return _config.Value.VerifyDenied;
-                case VerifyResult.Nonexistent:
+                case VerifyResult.NonexistentToken:
                     return _config.Value.VerifyNonexistent;
-                case VerifyResult.Invalid:
+                case VerifyResult.InvalidFormat:
                     return _config.Value.VerifyInvalid;
                 case VerifyResult.Expired:
                     return _config.Value.VerifyExpired;
