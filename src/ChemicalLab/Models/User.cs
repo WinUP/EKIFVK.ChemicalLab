@@ -10,6 +10,7 @@ namespace EKIFVK.ChemicalLab.Models
             Items = new HashSet<Item>();
         }
 
+        public string DisplayName { get; set; }
         public string Password { get; set; }
         public int UserGroup { get; set; }
         public string AccessToken { get; set; }

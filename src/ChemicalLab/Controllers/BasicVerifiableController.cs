@@ -28,7 +28,8 @@ namespace EKIFVK.ChemicalLab.Controllers
         }
 
         /// <summary>
-        /// Get user's instance by search user's name
+        /// Get user's instance by search its name<br />
+        /// User's name is not case sensitive
         /// </summary>
         /// <param name="name">User's name</param>
         /// <returns>User's instance</returns>
@@ -46,6 +47,27 @@ namespace EKIFVK.ChemicalLab.Controllers
         {
             var token = Verifier.FindToken(Request.Headers);
             return Database.Users.FirstOrDefault(e => e.AccessToken == token);
+        }
+
+        /// <summary>
+        /// Get usergroup's instance by search its name<br />
+        /// Usergroup's name is case sensitive
+        /// </summary>
+        /// <param name="name">Usergroup's name</param>
+        /// <returns></returns>
+        protected UserGroup FindGroup(string name)
+        {
+            return Database.UserGroups.FirstOrDefault(e => e.Name == name);
+        }
+
+        /// <summary>
+        /// Get usergroup's instance of given user
+        /// </summary>
+        /// <param name="user">User's instance</param>
+        /// <returns></returns>
+        protected UserGroup FindGroup(User user)
+        {
+            return user.UserGroupNavigation ?? Database.UserGroups.FirstOrDefault(e => e.Id == user.UserGroup);
         }
 
         /// <summary>

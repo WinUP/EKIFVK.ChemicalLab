@@ -67,6 +67,7 @@ namespace EKIFVK.ChemicalLab.Models
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(128);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
+                entity.Property(e => e.DisplayName).HasMaxLength(128);
                 entity.Property(e => e.AccessToken).HasMaxLength(36);
                 entity.Property(e => e.LastAccessAddress).HasMaxLength(38);
                 entity.Property(e => e.AllowMultiAddressLogin).HasDefaultValue(false);

@@ -12,8 +12,6 @@ using EKIFVK.ChemicalLab.SearchFilter;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Authentication;
 
-//! Username is not case sensitive
-
 namespace EKIFVK.ChemicalLab.Controllers
 {
     /// <summary>
@@ -49,7 +47,15 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </list>
         /// Returned Value
         /// <list type="bullet">
-        /// <item><description>{name, group, accessTime, accessAddress, allowMulti, disabled:bool, update}</description></item>
+        /// <item><description>{n, d, g, t, a, m, r:bool, u}</description></item>
+        /// <item><description>n: name</description></item>
+        /// <item><description>d: display name</description></item>
+        /// <item><description>g: user's group</description></item>
+        /// <item><description>t: last access time</description></item>
+        /// <item><description>a: last access address</description></item>
+        /// <item><description>m: allow multiple login</description></item>
+        /// <item><description>r: disabled</description></item>
+        /// <item><description>u: last update</description></item>
         /// </list>
         /// Probable Errors
         /// <list type="bullet">
@@ -67,16 +73,16 @@ namespace EKIFVK.ChemicalLab.Controllers
             if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
             return BasicResponse(data: new Hashtable
             {
-                {"name", user.Name},
-                {"group", user.UserGroupNavigation.Name},
-                {"accessTime", user.LastAccessTime},
-                {"accessAddress", user.LastAccessAddress},
-                {"allowMulti", user.AllowMultiAddressLogin},
-                {"disabled", user.Disabled},
-                {"update", user.LastUpdate}
+                {"n", user.Name},
+                {"d", user.DisplayName},
+                {"g", FindGroup(user).Name},
+                {"t", user.LastAccessTime},
+                {"a", user.LastAccessAddress},
+                {"m", user.AllowMultiAddressLogin},
+                {"r", user.Disabled},
+                {"u", user.LastUpdate}
             });
         }
-
         /// <summary>
         /// Register<br />
         /// <br />
@@ -122,7 +128,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             var normalUsergroupId = _configuration.Value.DefaultUserGroup;
             user = new User
             {
-                Name = name,
+                Name = name.ToLower(),
                 Password = password,
                 UserGroupNavigation = Database.UserGroups.FirstOrDefault(e => e.Id == normalUsergroupId),
                 LastUpdate = DateTime.Now
@@ -131,7 +137,6 @@ namespace EKIFVK.ChemicalLab.Controllers
             Database.SaveChanges();
             return BasicResponse(data: user.Id);
         }
-
         /// <summary>
         /// User sign in<br />
         /// <br />
@@ -158,8 +163,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
             if (user.Password != password) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.WrongPassword);
             if (user.Disabled) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
-            var group = Database.UserGroups.FirstOrDefault(e => e.Id == user.UserGroup);
-            if (group.Disabled) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
+            if (FindGroup(user).Disabled) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
             var token = Guid.NewGuid().ToString().ToUpper();
             user.AccessToken = token;
             Verifier.UpdateAccessTime(user);
@@ -167,7 +171,6 @@ namespace EKIFVK.ChemicalLab.Controllers
             Database.SaveChanges();
             return BasicResponse(data: token);
         }
-
         /// <summary>
         /// User sign out<br />
         /// <br />
@@ -199,7 +202,6 @@ namespace EKIFVK.ChemicalLab.Controllers
             Database.SaveChanges();
             return BasicResponse();
         }
-
         /// <summary>
         /// Detele user<br />
         /// <br />
@@ -231,7 +233,6 @@ namespace EKIFVK.ChemicalLab.Controllers
             Database.SaveChanges();
             return BasicResponse();
         }
-
         /// <summary>
         /// Modify user's information<br />
         /// <br />
@@ -244,7 +245,11 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </list>
         /// Returned Value
         /// <list type="bullet">
-        /// <item><description>{password?:bool, group?:bool, allowMulti?:bool, disabled?:bool}</description></item>
+        /// <item><description>{p?:bool, g?:bool, m?:bool, r?:bool}</description></item>
+        /// <item><description>p: is password change success</description></item>
+        /// <item><description>g: is user's group change success</description></item>
+        /// <item><description>m: is allow multiple login change success</description></item>
+        /// <item><description>r: is disabled change success</description></item>
         /// </list>
         /// Probable Errors
         /// <list type="bullet">
@@ -259,10 +264,10 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <param name="parameter">
         /// Parameters<br />
         /// <list type="bullet">
-        /// <item><description>password: new password (optional, or let it empty to reset password)</description></item>
-        /// <item><description>group: new usergroup (optional)</description></item>
-        /// <item><description>allowMulti: new value of allow multiple address (optional)</description></item>
-        /// <item><description>disabled: new value of disabled (optional)</description></item>
+        /// <item><description>password?: new password (or let it empty to reset password)</description></item>
+        /// <item><description>group?: new usergroup</description></item>
+        /// <item><description>allowMulti?: new value of allow multiple address</description></item>
+        /// <item><description>disabled?: new value of disabled</description></item>
         /// </list>
         /// </param>
         [HttpPatch("{name}")]
@@ -282,24 +287,24 @@ namespace EKIFVK.ChemicalLab.Controllers
                 }
                 else
                     targetUser.Password = parameter["password"].ToString();
-                finalData.Add("password", true);
+                finalData.Add("p", true);
             }
             if (parameter.ContainsKey("group"))
             {
                 if (currentUser == targetUser)
                     return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotChangeSelfGroup, finalData);
                 if (!Verify(currentUser, _configuration.Value.UserChangeGroupPermission, out var verifyResult)) return Basic403(verifyResult, finalData);
-                var group = Database.UserGroups.FirstOrDefault(e => e.Name == parameter["group"].ToString());
+                var group = FindGroup(parameter["group"].ToString());
                 if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup, finalData);
                 targetUser.UserGroupNavigation = group;
-                finalData.Add("group", true);
+                finalData.Add("g", true);
             }
             if (parameter.ContainsKey("allowMulti"))
             {
                 if (currentUser != targetUser && !Verify(currentUser, _configuration.Value.UserModifyPermission, out var verifyResult))
                     return Basic403(verifyResult, finalData);
                 targetUser.AllowMultiAddressLogin = (bool) parameter["allowMulti"];
-                finalData.Add("allowMulti", true);
+                finalData.Add("m", true);
             }
             if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
             {
@@ -307,10 +312,79 @@ namespace EKIFVK.ChemicalLab.Controllers
                     return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf, finalData);
                 if (!Verify(currentUser, _configuration.Value.UserDisablePermission, out var verifyResult))
                     return Basic403(verifyResult, finalData);
-                targetUser.Disabled = (bool)parameter["allowMulti"];
-                finalData.Add("disabled", true);
+                targetUser.Disabled = (bool)parameter["disabled"];
+                finalData.Add("r", true);
             }
             return BasicResponse(data: finalData);
+        }
+        /// <summary>
+        /// Get user's total count<br />
+        /// <br />
+        /// Permission Group
+        /// <list type="bullet">
+        /// <item><description>NULL</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>count:int</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>NULL (all illegal parameters will be ignored)</description></item>
+        /// </list>
+        /// </summary>
+        /// <param name="filter">Search filter</param>
+        [HttpGet(".count")]
+        public JsonResult GetUserCount(UserSearchFilter filter)
+        {
+            var param = new List<object>();
+            var query = QueryGenerator(filter, param);
+            return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Count());
+        }
+        /// <summary>
+        /// Get list of users<br />
+        /// <br />
+        /// Permission Group
+        /// <list type="bullet">
+        /// <item><description>UserManagePermission</description></item>
+        /// </list>
+        /// Returned Value
+        /// <list type="bullet">
+        /// <item><description>[{n, d, g, t, a, m, r:bool, u}]</description></item>
+        /// <item><description>n: name</description></item>
+        /// <item><description>d: display name</description></item>
+        /// <item><description>g: user's group</description></item>
+        /// <item><description>t: last access time</description></item>
+        /// <item><description>a: last access address</description></item>
+        /// <item><description>m: allow multiple login</description></item>
+        /// <item><description>r: disabled</description></item>
+        /// <item><description>u: last update</description></item>
+        /// </list>
+        /// Probable Errors
+        /// <list type="bullet">
+        /// <item><description>NULL (all illegal parameters will be ignored)</description></item>
+        /// </list>
+        /// </summary>
+        /// <param name="filter">Search filter</param>
+        /// <returns></returns>
+        [HttpGet(".list")]
+        public JsonResult GetUserList(UserSearchFilter filter)
+        {
+            var user = FindUser();
+            if (!Verify(user, _configuration.Value.UserManagePermission, out var verifyResult)) return Basic403(verifyResult);
+            var param = new List<object>();
+            var query = QueryGenerator(filter, param);
+            return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Select(e => new Hashtable
+            {
+                {"n", e.Name},
+                {"d", e.DisplayName},
+                {"g", FindGroup(e).Name},
+                {"t", e.LastAccessTime},
+                {"a", e.LastAccessAddress},
+                {"m", e.AllowMultiAddressLogin},
+                {"r", e.Disabled},
+                {"u", e.LastUpdate}
+            }).ToArray());
         }
 
         private string QueryGenerator(UserSearchFilter filter, ICollection<object> param)
@@ -355,68 +429,6 @@ namespace EKIFVK.ChemicalLab.Controllers
                 param.Add(filter.Take.Value);
             }
             return query;
-        }
-
-        /// <summary>
-        /// Get user's total count<br />
-        /// <br />
-        /// Permission Group
-        /// <list type="bullet">
-        /// <item><description>NULL</description></item>
-        /// </list>
-        /// Returned Value
-        /// <list type="bullet">
-        /// <item><description>{count:int}</description></item>
-        /// </list>
-        /// Probable Errors
-        /// <list type="bullet">
-        /// <item><description>NULL</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="filter">Search filter</param>
-        [HttpGet(".count")]
-        public JsonResult GetUserCount(UserSearchFilter filter)
-        {
-            var param = new List<object>();
-            var query = QueryGenerator(filter, param);
-            return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Count());
-        }
-
-        /// <summary>
-        /// Get list of users<br />
-        /// <br />
-        /// Permission Group
-        /// <list type="bullet">
-        /// <item><description>UserManagePermission</description></item>
-        /// </list>
-        /// Returned Value
-        /// <list type="bullet">
-        /// <item><description>[{name, group, accessTime, accessAddress, allowMulti, disabled:bool, update}]</description></item>
-        /// </list>
-        /// Probable Errors
-        /// <list type="bullet">
-        /// <item><description>NULL</description></item>
-        /// </list>
-        /// </summary>
-        /// <param name="filter">Search filter</param>
-        /// <returns></returns>
-        [HttpGet(".list")]
-        public JsonResult GetUserList(UserSearchFilter filter)
-        {
-            var user = FindUser();
-            if (!Verify(user, _configuration.Value.UserManagePermission, out var verifyResult)) return Basic403(verifyResult);
-            var param = new List<object>();
-            var query = QueryGenerator(filter, param);
-            return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Select(e => new Hashtable
-            {
-                {"name", user.Name},
-                {"group", user.UserGroupNavigation.Name},
-                {"accessTime", user.LastAccessTime},
-                {"accessAddress", user.LastAccessAddress},
-                {"allowMulti", user.AllowMultiAddressLogin},
-                {"disabled", user.Disabled},
-                {"update", user.LastUpdate}
-            }).ToArray());
         }
     }
 }
