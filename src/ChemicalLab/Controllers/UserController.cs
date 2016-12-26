@@ -112,14 +112,14 @@ namespace EKIFVK.ChemicalLab.Controllers
         [HttpPost("{name}")]
         public JsonResult Register(string name, [FromBody] Hashtable parameter)
         {
-            var user = FindUser();
-            if (!Verify(user, _configuration.Value.UserAddingPermission, out var verifyResult)) return Basic403(verifyResult);
             if (string.IsNullOrEmpty(name) ||
                 name.IndexOf("/", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("?", StringComparison.Ordinal) > -1 ||
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
                 return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidUsernameFormat);
+            var user = FindUser();
+            if (!Verify(user, _configuration.Value.UserAddingPermission, out var verifyResult)) return Basic403(verifyResult);
             var password = parameter["password"].ToString();
             if (password.ToUpper() != password || password.Length != 64)
                 return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidPasswordFormat);
@@ -240,7 +240,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <list type="bullet">
         /// <item><description>UserResetPasswordPermission (only for change password)</description></item>
         /// <item><description>UserChangeGroupPermission (only for change usergroup)</description></item>
-        /// <item><description>UserModifyPermission (only for change multiple address sign in)</description></item>
+        /// <item><description>UserModifyPermission (only for change other's multiple address sign in)</description></item>
         /// <item><description>UserDisablePermission (only for change disabled)</description></item>
         /// </list>
         /// Returned Value
@@ -257,7 +257,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <item><description>Cannot change self's usergroup: 403 CannotChangeSelfGroup</description></item>
         /// <item><description>Cannot disable or enable self: 403 CannotDisableSelf</description></item>
         /// <item><description>No target user: 404 NoTargetUser</description></item>
-        /// <item><description>No target usergroup: 404 NoTargetGroup</description></item>
+        /// <item><description>No target group: 404 NoTargetGroup</description></item>
         /// </list>
         /// </summary>
         /// <param name="name">Target user's name</param>
@@ -318,7 +318,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             return BasicResponse(data: finalData);
         }
         /// <summary>
-        /// Get user's total count<br />
+        /// Get users' total count<br />
         /// <br />
         /// Permission Group
         /// <list type="bullet">
@@ -414,15 +414,16 @@ namespace EKIFVK.ChemicalLab.Controllers
                 param.Add(filter.Disabled.Value ? 1 : 0);
             }
             var query = "";
-            if (condition.Count > 0) query = " WHERE " + string.Join(" AND ", condition);
+            if (condition.Count > 0) query = string.Join(" AND ", condition);
             if (filter.Skip.HasValue && filter.Skip.Value > 0)
             {
-                query = "SELECT * FROM User WHERE ID >= (SELECT ID FROM User" + query + " ORDER BY ID LIMIT @p" + ++paramCount +
-                        ",1)";
+                query = "SELECT * FROM User WHERE ID >= (SELECT ID FROM User WHERE " + query +
+                        " ORDER BY ID LIMIT @p" + ++paramCount +
+                        ",1)" + (query.Length > 0 ? " AND " : "") + query;
                 param.Add(filter.Skip.Value);
             }
             else
-                query = "SELECT * FROM User" + query;
+                query = "SELECT * FROM User WHERE " + query;
             if (filter.Take.HasValue)
             {
                 query += " LIMIT @p" + ++paramCount;

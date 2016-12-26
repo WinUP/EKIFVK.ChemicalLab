@@ -13,6 +13,8 @@
         public string CannotSingOutOthers { get; set; }
         public string CannotChangeSelfGroup { get; set; }
         public string CannotDisableSelf { get; set; }
+        public string InvalidGroupNameFormat { get; set; }
+        public string GroupAlreadyExist { get; set; }
 
         public int DefaultUserGroup { get; set; }
         public string DefaulPasswordHash { get; set; }
@@ -24,5 +26,10 @@
         public string UserChangeGroupPermission { get; set; }
         public string UserModifyPermission { get; set; }
         public string UserDisablePermission { get; set; }
+        public string GroupManagePermission { get; set; }
+        public string GroupAddingPermission { get; set; }
+        public string GroupDeletePermission { get; set; }
+        public string GroupModifyPermissionPermission { get; set; }
+
     }
 }

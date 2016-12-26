@@ -50,10 +50,10 @@ namespace EKIFVK.ChemicalLab.Controllers
         }
 
         /// <summary>
-        /// Get usergroup's instance by search its name<br />
+        /// Get group's instance by search its name<br />
         /// Usergroup's name is case sensitive
         /// </summary>
-        /// <param name="name">Usergroup's name</param>
+        /// <param name="name">Group's name</param>
         /// <returns></returns>
         protected UserGroup FindGroup(string name)
         {
@@ -61,7 +61,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         }
 
         /// <summary>
-        /// Get usergroup's instance of given user
+        /// Get group's instance of given user
         /// </summary>
         /// <param name="user">User's instance</param>
         /// <returns></returns>
