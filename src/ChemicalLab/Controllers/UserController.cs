@@ -11,6 +11,7 @@ using EKIFVK.ChemicalLab.Models;
 using EKIFVK.ChemicalLab.SearchFilter;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Authentication;
+using Newtonsoft.Json;
 
 namespace EKIFVK.ChemicalLab.Controllers
 {
@@ -21,7 +22,7 @@ namespace EKIFVK.ChemicalLab.Controllers
     /// <item><description>POST /{name} => Register</description></item>
     /// <item><description>PUT /{name}/token => SignIn</description></item>
     /// <item><description>DELETE /{name}/token => SignOut</description></item>
-    /// <item><description>DELETE /{name} => Delete</description></item>
+    /// <item><description>DELETE /{name} => Disable</description></item>
     /// <item><description>PATCH /{name} => ChangeUserInformation</description></item>
     /// <item><description>GET /.count => GetUserCount</description></item>
     /// <item><description>GET /.list => GetUserList</description></item>
@@ -118,12 +119,12 @@ namespace EKIFVK.ChemicalLab.Controllers
                 name.IndexOf("?", StringComparison.Ordinal) > -1 ||
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
                 return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidUsernameFormat);
-            var user = FindUser();
-            if (!Verify(user, _configuration.Value.UserAddingPermission, out var verifyResult)) return Basic403(verifyResult);
+            var currentUser = FindUser();
+            if (!Verify(currentUser, _configuration.Value.UserAddingPermission, out var verifyResult)) return Basic403(verifyResult);
             var password = parameter["password"].ToString();
             if (password.ToUpper() != password || password.Length != 64)
                 return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidPasswordFormat);
-            user = FindUser(name);
+            var user = FindUser(name);
             if (user != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.UserAlreadyExist);
             var normalUsergroupId = _configuration.Value.DefaultUserGroup;
             user = new User
@@ -135,6 +136,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             };
             Database.Users.Add(user);
             Database.SaveChanges();
+            Logger.WriteNormal(currentUser, "User", user.Id, BasicHistory(HistoryType.Add));
             return BasicResponse(data: user.Id);
         }
         /// <summary>
@@ -169,6 +171,9 @@ namespace EKIFVK.ChemicalLab.Controllers
             Verifier.UpdateAccessTime(user);
             Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
             Database.SaveChanges();
+            var history = BasicHistory(HistoryType.Modify);
+            history.Add("AccessToken", token);
+            Logger.WriteNormal(user, "User", user.Id, history);
             return BasicResponse(data: token);
         }
         /// <summary>
@@ -200,6 +205,9 @@ namespace EKIFVK.ChemicalLab.Controllers
             Verifier.UpdateAccessTime(user);
             Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
             Database.SaveChanges();
+            var history = BasicHistory(HistoryType.Modify);
+            history.Add("AccessToken", "");
+            Logger.WriteNormal(user, "User", user.Id, history);
             return BasicResponse();
         }
         /// <summary>
@@ -222,7 +230,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </summary>
         /// <param name="name">User's name</param>
         [HttpDelete("{name}")]
-        public JsonResult Delete(string name)
+        public JsonResult Disable(string name)
         {
             var user = FindUser();
             if (!Verify(user, _configuration.Value.UserDeletePermission, out var verifyResult)) return Basic403(verifyResult);
@@ -231,6 +239,9 @@ namespace EKIFVK.ChemicalLab.Controllers
             if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
             user.Disabled = true;
             Database.SaveChanges();
+            var history = BasicHistory(HistoryType.Delete);
+            history.Add("Disabled", "true");
+            Logger.WriteNormal(user, "User", user.Id, history);
             return BasicResponse();
         }
         /// <summary>
@@ -288,6 +299,9 @@ namespace EKIFVK.ChemicalLab.Controllers
                 else
                     targetUser.Password = parameter["password"].ToString();
                 finalData.Add("p", true);
+                var history = BasicHistory(HistoryType.Modify);
+                history.Add("Password", targetUser.Password);
+                Logger.WriteNormal(currentUser, "User", targetUser.Id, history);
             }
             if (parameter.ContainsKey("group"))
             {
@@ -298,6 +312,9 @@ namespace EKIFVK.ChemicalLab.Controllers
                 if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup, finalData);
                 targetUser.UserGroupNavigation = group;
                 finalData.Add("g", true);
+                var history = BasicHistory(HistoryType.Modify);
+                history.Add("UserGroup", group.Name);
+                Logger.WriteNormal(currentUser, "User", targetUser.Id, history);
             }
             if (parameter.ContainsKey("allowMulti"))
             {
@@ -305,6 +322,9 @@ namespace EKIFVK.ChemicalLab.Controllers
                     return Basic403(verifyResult, finalData);
                 targetUser.AllowMultiAddressLogin = (bool) parameter["allowMulti"];
                 finalData.Add("m", true);
+                var history = BasicHistory(HistoryType.Modify);
+                history.Add("AllowMultiAddressLogin", targetUser.AllowMultiAddressLogin);
+                Logger.WriteNormal(currentUser, "User", targetUser.Id, history);
             }
             if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
             {
@@ -314,6 +334,9 @@ namespace EKIFVK.ChemicalLab.Controllers
                     return Basic403(verifyResult, finalData);
                 targetUser.Disabled = (bool)parameter["disabled"];
                 finalData.Add("r", true);
+                var history = BasicHistory(targetUser.Disabled ? HistoryType.Delete : HistoryType.Modify);
+                history.Add("Disabled", targetUser.Disabled);
+                Logger.WriteNormal(currentUser, "User", targetUser.Id, history);
             }
             return BasicResponse(data: finalData);
         }

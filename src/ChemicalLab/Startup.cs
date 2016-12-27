@@ -30,9 +30,11 @@ namespace EKIFVK.ChemicalLab
             services.AddMvc();
             services.AddOptions();
             services.Configure<AuthenticationConfiguration>(Configuration.GetSection("AuthenticationConfiguration"));
+            services.Configure<ModifyLoggingConfiguration>(Configuration.GetSection("ModifyLoggingConfiguration"));
             services.Configure<UserModuleConfiguration>(Configuration.GetSection("UserModuleConfiguration"));
             services.AddDbContext<ChemicalLabContext>(
                 options => options.UseMySQL(Configuration.GetConnectionString("Database")));
+            services.AddSingleton<ILoggingService, LoggingService>();
             services.AddScoped<IAuthentication, AuthenticationService>();
         }
 

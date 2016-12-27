@@ -3,7 +3,9 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using EKIFVK.ChemicalLab.Models;
+using EKIFVK.ChemicalLab.Services;
 using EKIFVK.ChemicalLab.Services.Authentication;
+using Newtonsoft.Json.Linq;
 
 namespace EKIFVK.ChemicalLab.Controllers
 {
@@ -20,10 +22,15 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// Authentication service
         /// </summary>
         protected readonly IAuthentication Verifier;
+        /// <summary>
+        /// Logging service
+        /// </summary>
+        protected readonly ILoggingService Logger;
 
-        public BasicVerifiableController(ChemicalLabContext database, IAuthentication verifier)
+        public BasicVerifiableController(ChemicalLabContext database, IAuthentication verifier, ILoggingService logger)
         {
             Verifier = verifier;
+            Logger = logger;
             Database = database;
         }
 
@@ -89,6 +96,8 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <returns>Verification result</returns>
         protected VerifyResult Verify(User user, string permissionGroup)
         {
+            var result = Verifier.Verify(user, permissionGroup, HttpContext.Connection.RemoteIpAddress);
+            if (result == VerifyResult.Denied) Logger.WriteRejected(user, "{\"p\":\"" + permissionGroup + "\"}");
             return Verifier.Verify(user, permissionGroup, HttpContext.Connection.RemoteIpAddress);
         }
 
@@ -102,6 +111,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         protected bool Verify(User user, string permissionGroup, out VerifyResult verifyResult)
         {
             verifyResult = Verifier.Verify(user, permissionGroup, HttpContext.Connection.RemoteIpAddress);
+            if (verifyResult == VerifyResult.Denied) Logger.WriteRejected(user, "{\"p\":\"" + permissionGroup + "\"}");
             return verifyResult == VerifyResult.Passed;
         }
 
@@ -123,6 +133,33 @@ namespace EKIFVK.ChemicalLab.Controllers
         protected JsonResult Basic403NonexistentToken()
         {
             return BasicResponse(StatusCodes.Status403Forbidden, Verifier.ToString(VerifyResult.NonexistentToken));
+        }
+
+        protected JObject BasicHistory(HistoryType type)
+        {
+            var result = new JObject();
+            switch (type)
+            {
+                case HistoryType.Add:
+                    result.Add("add");
+                    break;
+                case HistoryType.Modify:
+                    result.Add("modify");
+                    break;
+                case HistoryType.Delete:
+                    result.Add("delete");
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, "No suitable history type");
+            }
+            return result;
+        }
+
+        protected enum HistoryType
+        {
+            Add,
+            Modify,
+            Delete
         }
     }
 }

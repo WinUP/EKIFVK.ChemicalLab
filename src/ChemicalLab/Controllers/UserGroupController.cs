@@ -117,6 +117,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             };
             Database.UserGroups.Add(group);
             Database.SaveChanges();
+            Logger.WriteNormal(user, "UserGroup", group.Id, BasicHistory(HistoryType.Add));
             return BasicResponse(data: group.Id);
         }
         /// <summary>
@@ -148,6 +149,9 @@ namespace EKIFVK.ChemicalLab.Controllers
             if (user.UserGroup == group.Id) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf);
             group.Disabled = true;
             Database.SaveChanges();
+            var history = BasicHistory(HistoryType.Delete);
+            history.Add("Disabled", "true");
+            Logger.WriteNormal(user, "UserGroup", group.Id, history);
             return BasicResponse();
         }
         /// <summary>
@@ -196,18 +200,27 @@ namespace EKIFVK.ChemicalLab.Controllers
                 if (FindGroup(newName) != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist, finalData);
                 target.Name = newName;
                 finalData.Add("n", true);
+                var history = BasicHistory(HistoryType.Modify);
+                history.Add("Name", target.Name);
+                Logger.WriteNormal(user, "UserGroup", target.Id, history);
             }
             if (parameter.ContainsKey("note"))
             {
                 if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return Basic403(verifyResult, finalData);
                 target.Note = parameter["note"].ToString();
                 finalData.Add("d", true);
+                var history = BasicHistory(HistoryType.Modify);
+                history.Add("Note", target.Note);
+                Logger.WriteNormal(user, "UserGroup", target.Id, history);
             }
             if (parameter.ContainsKey("permission"))
             {
                 if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult)) return Basic403(verifyResult, finalData);
                 target.Permission = parameter["permission"].ToString();
                 finalData.Add("p", true);
+                var history = BasicHistory(HistoryType.Modify);
+                history.Add("Permission", target.Permission);
+                Logger.WriteNormal(user, "UserGroup", target.Id, history);
             }
             return BasicResponse(data: finalData);
         }
