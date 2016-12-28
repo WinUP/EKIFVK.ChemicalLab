@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using EKIFVK.ChemicalLab.Models;
 using EKIFVK.ChemicalLab.Services;
 using EKIFVK.ChemicalLab.Services.Authentication;
+using EKIFVK.ChemicalLab.Services.Logging;
 using Newtonsoft.Json.Linq;
 
 namespace EKIFVK.ChemicalLab.Controllers
@@ -83,7 +84,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <param name="nameA">UserA's name</param>
         /// <param name="nameB">UserB's name</param>
         /// <returns>Is the name equal</returns>
-        protected static bool IsNameEqual(string nameA, string nameB)
+        protected static bool IsUserNameEqual(string nameA, string nameB)
         {
             return string.Equals(nameA, nameB, StringComparison.CurrentCultureIgnoreCase);
         }
@@ -97,8 +98,11 @@ namespace EKIFVK.ChemicalLab.Controllers
         protected VerifyResult Verify(User user, string permissionGroup)
         {
             var result = Verifier.Verify(user, permissionGroup, HttpContext.Connection.RemoteIpAddress);
-            if (result == VerifyResult.Denied) Logger.WriteRejected(user, "{\"p\":\"" + permissionGroup + "\"}");
-            return Verifier.Verify(user, permissionGroup, HttpContext.Connection.RemoteIpAddress);
+            if (result == VerifyResult.Denied)
+                Logger.Write(new LoggingRecord(LoggingType.ErrorLevel2, user).Add("group", permissionGroup));
+            else if (result == VerifyResult.Passed)
+                Logger.Write(new LoggingRecord(LoggingType.InfoLevel2, user).Add("group", permissionGroup));
+            return result;
         }
 
         /// <summary>
@@ -111,7 +115,10 @@ namespace EKIFVK.ChemicalLab.Controllers
         protected bool Verify(User user, string permissionGroup, out VerifyResult verifyResult)
         {
             verifyResult = Verifier.Verify(user, permissionGroup, HttpContext.Connection.RemoteIpAddress);
-            if (verifyResult == VerifyResult.Denied) Logger.WriteRejected(user, "{\"p\":\"" + permissionGroup + "\"}");
+            if (verifyResult == VerifyResult.Denied)
+                Logger.Write(new LoggingRecord(LoggingType.ErrorLevel2, user).Add("group", permissionGroup));
+            else if (verifyResult == VerifyResult.Passed)
+                Logger.Write(new LoggingRecord(LoggingType.InfoLevel2, user).Add("group", permissionGroup));
             return verifyResult == VerifyResult.Passed;
         }
 
@@ -121,7 +128,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <param name="result">Verification result</param>
         /// <param name="data">Data which should be returned (default null)</param>
         /// <returns>Json response</returns>
-        protected JsonResult Basic403(VerifyResult result, object data = null)
+        protected JsonResult PermissionDenied(VerifyResult result, object data = null)
         {
             return BasicResponse(StatusCodes.Status403Forbidden, Verifier.ToString(result), data);
         }
@@ -130,7 +137,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// Get a regular EKIFVK json response with Http status code 403 and message is VerifyResult.NonexistentToken
         /// </summary>
         /// <returns>Json response</returns>
-        protected JsonResult Basic403NonexistentToken()
+        protected JsonResult NonexistentToken()
         {
             return BasicResponse(StatusCodes.Status403Forbidden, Verifier.ToString(VerifyResult.NonexistentToken));
         }

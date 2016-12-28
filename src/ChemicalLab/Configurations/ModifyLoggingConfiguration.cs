@@ -2,8 +2,11 @@
 {
     public class ModifyLoggingConfiguration
     {
-        public string NormalModifyType { get; set; }
-        public string RejectedModifyType { get; set; }
-        public string WarningModifyType { get; set; }
+        public string InfoLevel1 { get; set; }
+        public string InfoLevel2 { get; set; }
+        public string InfoLevel3 { get; set; }
+        public string ErrorLevel1 { get; set; }
+        public string ErrorLevel2 { get; set; }
+        public string ErrorLevel3 { get; set; }
     }
 }

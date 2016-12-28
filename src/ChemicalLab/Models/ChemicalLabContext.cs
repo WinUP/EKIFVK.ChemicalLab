@@ -78,28 +78,17 @@ namespace EKIFVK.ChemicalLab.Models
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_User_UserGroup");
             });
-            modelBuilder.Entity<ModifyType>(entity =>
-            {
-                entity.ToTable("ModifyType");
-                entity.Property(e => e.Id).HasColumnName("ID");
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
-                entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
-            });
             modelBuilder.Entity<ModifyHistory>(entity =>
             {
                 entity.ToTable("ModifyHistory");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.RecordId).HasColumnName("RecordID");
+                entity.Property(e => e.ModifyType).HasMaxLength(32);
                 entity.HasOne(d => d.ModifierNavigation)
                     .WithMany(p => p.ModifyHistories)
                     .HasForeignKey(d => d.Modifier)
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_Modify_User");
-                entity.HasOne(d => d.ModifyTypeNavigation)
-                    .WithMany(p => p.ModifyHistories)
-                    .HasForeignKey(d => d.ModifyType)
-                    .OnDelete(DeleteBehavior.Restrict)
-                    .HasConstraintName("FK_Modify_ModifyType");
             });
             modelBuilder.Entity<ItemDetailType>(entity =>
             {
@@ -223,8 +212,7 @@ namespace EKIFVK.ChemicalLab.Models
         public DbSet<PermissionGroup> PermissionGroups { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserGroup> UserGroups { get; set; }
-        public DbSet<ModifyType> ModifyTypes { get; set; }
-        public DbSet<ModifyHistory> ModifyHistorys { get; set; }
+        public DbSet<ModifyHistory> ModifyHistories { get; set; }
         public DbSet<ItemDetailType> ItemDetailTypes { get; set; }
         public DbSet<Unit> Units { get; set; }
         public DbSet<PhysicalState> PhysicalStates { get; set; }

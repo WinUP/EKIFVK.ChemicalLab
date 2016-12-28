@@ -31,5 +31,19 @@
         public string GroupDeletePermission { get; set; }
         public string GroupModifyPermissionPermission { get; set; }
 
+        public string GetUserInfoLog { get; set; }
+        public string RegisterExistentUserLog { get; set; }
+        public string RegisterUserLog { get; set; }
+        public string SingInLog { get; set; }
+        public string TrySignOutOtherUserLog { get; set; }
+        public string SingOutLog { get; set; }
+        public string TryDisableSelfLog { get; set; }
+        public string DisableUserLog { get; set; }
+        public string ResetPasswordLog { get; set; }
+        public string ChangePasswordLog { get; set; }
+        public string TryChangeSelfGroupLog { get; set; }
+        public string ChangeUserGroupLog { get; set; }
+        public string ChangeUserAllowMultipleLoginLog { get; set; }
+        public string ChangeUserDisabledLog { get; set; }
     }
 }

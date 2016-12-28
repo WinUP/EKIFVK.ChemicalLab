@@ -106,7 +106,7 @@ namespace EKIFVK.ChemicalLab.Controllers
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
                 return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidGroupNameFormat);
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupAddingPermission, out var verifyResult)) return Basic403(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupAddingPermission, out var verifyResult)) return PermissionDenied(verifyResult);
             var group = FindGroup(name);
             if (group != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist);
             group = new UserGroup
@@ -143,7 +143,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         public JsonResult Disable(string name)
         {
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupDeletePermission, out var verifyResult)) return Basic403(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupDeletePermission, out var verifyResult)) return PermissionDenied(verifyResult);
             var group = FindGroup(name);
             if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
             if (user.UserGroup == group.Id) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf);
@@ -189,13 +189,13 @@ namespace EKIFVK.ChemicalLab.Controllers
         public JsonResult ChangeGroupInformation(string name, [FromBody] Hashtable parameter)
         {
             var user = FindUser();
-            if (user == null) return Basic403NonexistentToken();
+            if (user == null) return NonexistentToken();
             var target = FindGroup(name);
             if (target == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
             var finalData = new JObject();
             if (parameter.ContainsKey("name"))
             {
-                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return Basic403(verifyResult, finalData);
+                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
                 var newName = parameter["name"].ToString();
                 if (FindGroup(newName) != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist, finalData);
                 target.Name = newName;
@@ -206,7 +206,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             }
             if (parameter.ContainsKey("note"))
             {
-                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return Basic403(verifyResult, finalData);
+                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
                 target.Note = parameter["note"].ToString();
                 finalData.Add("d", true);
                 var history = BasicHistory(HistoryType.Modify);
@@ -215,7 +215,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             }
             if (parameter.ContainsKey("permission"))
             {
-                if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult)) return Basic403(verifyResult, finalData);
+                if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
                 target.Permission = parameter["permission"].ToString();
                 finalData.Add("p", true);
                 var history = BasicHistory(HistoryType.Modify);
@@ -274,7 +274,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         public JsonResult GetGroupList(GroupSearchFilter filter)
         {
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return Basic403(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult);
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
             return BasicResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Select(e => new Hashtable

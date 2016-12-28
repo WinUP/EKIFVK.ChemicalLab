@@ -47,6 +47,7 @@ namespace EKIFVK.ChemicalLab.Services.Authentication
                 user.LastAccessAddress != address.ToString() && !user.AllowMultiAddressLogin) return VerifyResult.Denied;
             UpdateAccessTime(user);
             UpdateAccessAddress(user, address);
+            if (string.IsNullOrEmpty(permissionGroup)) return VerifyResult.Passed;
             var permissionGroupInstance = _database.PermissionGroups.FirstOrDefault(e => e.Name == permissionGroup);
             if (permissionGroupInstance == null) return VerifyResult.NonexistentGroup;
             var permissions = permissionGroupInstance.Permission.Split(' ');
@@ -78,7 +79,7 @@ namespace EKIFVK.ChemicalLab.Services.Authentication
 
         public void UpdateAccessAddress(User user, IPAddress address)
         {
-            user.LastAccessAddress = address.ToString();
+            user.LastAccessAddress = address?.ToString();
             _database.SaveChanges();
         }
 
