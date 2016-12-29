@@ -42,7 +42,15 @@ namespace EKIFVK.ChemicalLab
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
-            app.UseMvc();
+            app.UseMvc(routes =>
+            {
+                //Support for Single Page Application
+                routes.MapRoute(
+                    name: "spa-fallback",
+                    template: "client/{*url}",
+                    defaults: new {controller = "Client", action = "Index"});
+            });
+            //Support for non-iis environment
             //app.UseForwardedHeaders(new ForwardedHeadersOptions
             //{
             //    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto

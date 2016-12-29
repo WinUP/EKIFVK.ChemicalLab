@@ -28,7 +28,7 @@ namespace EKIFVK.ChemicalLab.Controllers
     /// <item><description>GET /.list => GetUserList</description></item>
     /// </list>
     /// </summary>
-    [Route("user")]
+    [Route("api/v1/user")]
     public class UserController : BasicVerifiableController
     {
         private readonly IOptions<UserModuleConfiguration> _configuration;

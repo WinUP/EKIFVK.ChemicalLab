@@ -25,7 +25,7 @@ namespace EKIFVK.ChemicalLab.Controllers
     /// <item><description>GET /.list => GetGroupList</description></item>
     /// </list>
     /// </summary>
-    [Route("usergroup")]
+    [Route("api/v1/usergroup")]
     public class UserGroupController : BasicVerifiableController
     {
         private readonly IOptions<UserModuleConfiguration> _configuration;
