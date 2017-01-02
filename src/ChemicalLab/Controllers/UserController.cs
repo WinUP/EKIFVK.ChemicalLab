@@ -240,7 +240,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <br />
         /// Permission Group
         /// <list type="bullet">
-        /// <item><description>UserDeletePermission</description></item>
+        /// <item><description>UserModifyDisabledPermission</description></item>
         /// </list>
         /// Returned Value
         /// <list type="bullet">
@@ -258,7 +258,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         public JsonResult Disable(string name)
         {
             var currentUser = FindUser();
-            if (!Verify(currentUser, _configuration.Value.UserDeletePermission, out var verifyResult)) return PermissionDenied(verifyResult);
+            if (!Verify(currentUser, _configuration.Value.UserModifyDisabledPermission, out var verifyResult)) return PermissionDenied(verifyResult);
             if (IsUserNameEqual(currentUser.Name, name))
             {
                 Logger.Write(new LoggingRecord(LoggingType.ErrorLevel1, currentUser, "User", currentUser.Id)

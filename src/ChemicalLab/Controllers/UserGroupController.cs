@@ -11,6 +11,7 @@ using EKIFVK.ChemicalLab.Models;
 using EKIFVK.ChemicalLab.SearchFilter;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Authentication;
+using EKIFVK.ChemicalLab.Services.Logging;
 
 namespace EKIFVK.ChemicalLab.Controllers
 {
@@ -30,8 +31,8 @@ namespace EKIFVK.ChemicalLab.Controllers
     {
         private readonly IOptions<UserModuleConfiguration> _configuration;
 
-        public UserGroupController(ChemicalLabContext database, IAuthentication verifier, IOptions<UserModuleConfiguration> configuration)
-            : base(database, verifier)
+        public UserGroupController(ChemicalLabContext database, IAuthentication verifier, ILoggingService logger, IOptions<UserModuleConfiguration> configuration)
+            : base(database, verifier, logger)
         {
             _configuration = configuration;
         }
@@ -117,7 +118,10 @@ namespace EKIFVK.ChemicalLab.Controllers
             };
             Database.UserGroups.Add(group);
             Database.SaveChanges();
-            Logger.WriteNormal(user, "UserGroup", group.Id, BasicHistory(HistoryType.Add));
+            Logger.Write(new LoggingRecord(LoggingType.InfoLevel3, user, "UserGroup", group.Id)
+                .AddContent(_configuration.Value.AddGroupLog)
+                .AddData("name", name)
+                .AddData("permission", group.Permission));
             return BasicResponse(data: group.Id);
         }
         /// <summary>
@@ -125,7 +129,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <br />
         /// Permission Group
         /// <list type="bullet">
-        /// <item><description>GroupDeletePermission</description></item>
+        /// <item><description>GroupModifyDisabledPermission</description></item>
         /// </list>
         /// Returned Value
         /// <list type="bullet">
@@ -143,15 +147,15 @@ namespace EKIFVK.ChemicalLab.Controllers
         public JsonResult Disable(string name)
         {
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupDeletePermission, out var verifyResult)) return PermissionDenied(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult)) return PermissionDenied(verifyResult);
             var group = FindGroup(name);
             if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
             if (user.UserGroup == group.Id) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf);
             group.Disabled = true;
             Database.SaveChanges();
-            var history = BasicHistory(HistoryType.Delete);
-            history.Add("Disabled", "true");
-            Logger.WriteNormal(user, "UserGroup", group.Id, history);
+            Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "UserGroup", group.Id)
+                .AddContent(_configuration.Value.DisableGroupLog)
+                .AddData("name", name));
             return BasicResponse();
         }
         /// <summary>
@@ -174,6 +178,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <item><description>Permission denied: 403 [VerifyResult]</description></item>
         /// <item><description>No target group: 404 NoTargetGroup</description></item>
         /// <item><description>Group already exist: 409 GroupAlreadyExist</description></item>
+        /// <item><description>Cannot change disabled of self's group: 403 CannotChangeSelfGroupDisabled</description></item>
         /// </list>
         /// </summary>
         /// <param name="name">Target user's name</param>
@@ -198,29 +203,53 @@ namespace EKIFVK.ChemicalLab.Controllers
                 if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
                 var newName = parameter["name"].ToString();
                 if (FindGroup(newName) != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist, finalData);
+                var previousValue = target.Name;
                 target.Name = newName;
                 finalData.Add("n", true);
-                var history = BasicHistory(HistoryType.Modify);
-                history.Add("Name", target.Name);
-                Logger.WriteNormal(user, "UserGroup", target.Id, history);
+                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
+                    .AddContent(_configuration.Value.ChangeUserGroupLog)
+                    .AddData("name", name)
+                    .Add("old", previousValue)
+                    .Add("new", target.Name));
             }
             if (parameter.ContainsKey("note"))
             {
                 if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
+                var previousValue = target.Note;
                 target.Note = parameter["note"].ToString();
                 finalData.Add("d", true);
-                var history = BasicHistory(HistoryType.Modify);
-                history.Add("Note", target.Note);
-                Logger.WriteNormal(user, "UserGroup", target.Id, history);
+                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
+                    .AddContent(_configuration.Value.ChangeGroupNoteLog)
+                    .AddData("name", name)
+                    .Add("old", previousValue)
+                    .Add("new", target.Disabled));
             }
             if (parameter.ContainsKey("permission"))
             {
                 if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
+                var previousValue = target.Permission;
                 target.Permission = parameter["permission"].ToString();
                 finalData.Add("p", true);
-                var history = BasicHistory(HistoryType.Modify);
-                history.Add("Permission", target.Permission);
-                Logger.WriteNormal(user, "UserGroup", target.Id, history);
+                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
+                    .AddContent(_configuration.Value.ChangeGroupPermissionLog)
+                    .AddData("name", name)
+                    .Add("old", previousValue)
+                    .Add("new", target.Disabled));
+            }
+            if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
+            {
+                if (FindGroup(user) == target)
+                    return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotChangeSelfGroupDisabled, finalData);
+                if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult))
+                    return PermissionDenied(verifyResult, finalData);
+                var previousValue = target.Disabled;
+                target.Disabled = (bool)parameter["disabled"];
+                finalData.Add("r", true);
+                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
+                    .AddContent(_configuration.Value.ChangeGroupDisabledLog)
+                    .AddData("name", name)
+                    .Add("old", previousValue)
+                    .Add("new", target.Disabled));
             }
             return BasicResponse(data: finalData);
         }
@@ -286,7 +315,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             }).ToArray());
         }
 
-        private string QueryGenerator(GroupSearchFilter filter, ICollection<object> param)
+        private static string QueryGenerator(GroupSearchFilter filter, ICollection<object> param)
         {
             //? MySql connector for .net core still does not support Take() and Skip() in this version
             //? which means we can only form SQL query manually

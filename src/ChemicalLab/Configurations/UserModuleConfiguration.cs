@@ -15,21 +15,22 @@
         public string CannotDisableSelf { get; set; }
         public string InvalidGroupNameFormat { get; set; }
         public string GroupAlreadyExist { get; set; }
+        public string CannotChangeSelfGroupDisabled { get; set; }
 
         public int DefaultUserGroup { get; set; }
         public string DefaulPasswordHash { get; set; }
 
         public string UserManagePermission { get; set; }
         public string UserAddingPermission { get; set; }
-        public string UserDeletePermission { get; set; }
+        public string UserModifyDisabledPermission { get; set; }
         public string UserResetPasswordPermission { get; set; }
         public string UserChangeGroupPermission { get; set; }
         public string UserModifyPermission { get; set; }
         public string UserDisablePermission { get; set; }
         public string GroupManagePermission { get; set; }
         public string GroupAddingPermission { get; set; }
-        public string GroupDeletePermission { get; set; }
         public string GroupModifyPermissionPermission { get; set; }
+        public string GroupModifyDisabledPermission { get; set; }
 
         public string GetUserInfoLog { get; set; }
         public string RegisterExistentUserLog { get; set; }
@@ -45,5 +46,11 @@
         public string ChangeUserGroupLog { get; set; }
         public string ChangeUserAllowMultipleLoginLog { get; set; }
         public string ChangeUserDisabledLog { get; set; }
+        public string AddGroupLog { get; set; }
+        public string DisableGroupLog { get; set; }
+        public string ChangeGroupNameLog { get; set; }
+        public string ChangeGroupNoteLog { get; set; }
+        public string ChangeGroupPermissionLog { get; set; }
+        public string ChangeGroupDisabledLog { get; set; }
     }
 }

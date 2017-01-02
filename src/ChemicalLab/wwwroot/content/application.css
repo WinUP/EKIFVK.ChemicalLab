@@ -1,0 +1,23 @@
+.main-loading {
+    margin: 20% auto 0 auto;
+    text-align: center;
+    font-size: 42px;
+    color: #808080;
+}
+*[hidden] {
+    display: none !important;
+}
+md-toolbar {
+    margin-bottom: 20px;
+}
+md-toolbar span:last-child {
+    padding-left: 10px;
+    padding-right: 10px;
+    cursor: pointer;
+}
+ul.nav li > a {
+    cursor: pointer;
+}
+.md-input-underline {
+    margin-top: -1px !important;
+}
