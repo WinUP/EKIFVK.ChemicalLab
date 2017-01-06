@@ -5,7 +5,6 @@
         public string NoTargetUser { get; set; }
         public string NoTargetGroup { get; set; }
         public string InvalidUsernameFormat { get; set; }
-        public string InvalidPasswordFormat { get; set; }
         public string UserAlreadyExist { get; set; }
         public string WrongPassword { get; set; }
         public string DisabledUser { get; set; }
@@ -17,7 +16,6 @@
         public string GroupAlreadyExist { get; set; }
         public string CannotChangeSelfGroupDisabled { get; set; }
 
-        public int DefaultUserGroup { get; set; }
         public string DefaulPasswordHash { get; set; }
 
         public string UserManagePermission { get; set; }

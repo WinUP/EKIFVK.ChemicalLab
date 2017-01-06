@@ -141,32 +141,5 @@ namespace EKIFVK.ChemicalLab.Controllers
         {
             return BasicResponse(StatusCodes.Status403Forbidden, Verifier.ToString(VerifyResult.NonexistentToken));
         }
-
-        protected JObject BasicHistory(HistoryType type)
-        {
-            var result = new JObject();
-            switch (type)
-            {
-                case HistoryType.Add:
-                    result.Add("add");
-                    break;
-                case HistoryType.Modify:
-                    result.Add("modify");
-                    break;
-                case HistoryType.Delete:
-                    result.Add("delete");
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, "No suitable history type");
-            }
-            return result;
-        }
-
-        protected enum HistoryType
-        {
-            Add,
-            Modify,
-            Delete
-        }
     }
 }

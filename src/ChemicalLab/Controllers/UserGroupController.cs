@@ -13,8 +13,7 @@ using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Authentication;
 using EKIFVK.ChemicalLab.Services.Logging;
 
-namespace EKIFVK.ChemicalLab.Controllers
-{
+namespace EKIFVK.ChemicalLab.Controllers {
     /// <summary>
     /// API for UserGroup Management
     /// <list type="bullet">
@@ -27,13 +26,12 @@ namespace EKIFVK.ChemicalLab.Controllers
     /// </list>
     /// </summary>
     [Route("api/v1/usergroup")]
-    public class UserGroupController : BasicVerifiableController
-    {
+    public class UserGroupController : BasicVerifiableController {
         private readonly IOptions<UserModuleConfiguration> _configuration;
 
-        public UserGroupController(ChemicalLabContext database, IAuthentication verifier, ILoggingService logger, IOptions<UserModuleConfiguration> configuration)
-            : base(database, verifier, logger)
-        {
+        public UserGroupController(ChemicalLabContext database, IAuthentication verifier, ILoggingService logger,
+            IOptions<UserModuleConfiguration> configuration)
+            : base(database, verifier, logger) {
             _configuration = configuration;
         }
 
@@ -59,18 +57,17 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </summary>
         /// <param name="name">Target user's name</param>
         [HttpGet("{name}")]
-        public JsonResult GetInfo(string name)
-        {
+        public JsonResult GetInfo(string name) {
             var group = FindGroup(name);
             if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
-            return BasicResponse(data: new Hashtable
-            {
+            return BasicResponse(data: new Hashtable {
                 {"n", group.Name},
                 {"d", group.Note},
                 {"p", group.Permission},
                 {"u", Database.Users.Count(e => e.UserGroup == group.Id)}
             });
         }
+
         /// <summary>
         /// Add new group<br />
         /// <br />
@@ -98,8 +95,7 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </list>
         /// </param>
         [HttpPost("{name}")]
-        public JsonResult Add(string name, [FromBody] Hashtable parameter)
-        {
+        public JsonResult Add(string name, [FromBody] Hashtable parameter) {
             if (string.IsNullOrEmpty(name) ||
                 name.IndexOf("/", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
@@ -107,11 +103,12 @@ namespace EKIFVK.ChemicalLab.Controllers
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
                 return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidGroupNameFormat);
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupAddingPermission, out var verifyResult)) return PermissionDenied(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupAddingPermission, out var verifyResult))
+                return PermissionDenied(verifyResult);
             var group = FindGroup(name);
-            if (group != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist);
-            group = new UserGroup
-            {
+            if (group != null)
+                return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist);
+            group = new UserGroup {
                 Name = name,
                 Note = parameter["note"].ToString(),
                 Permission = parameter["permission"].ToString()
@@ -124,6 +121,7 @@ namespace EKIFVK.ChemicalLab.Controllers
                 .AddData("permission", group.Permission));
             return BasicResponse(data: group.Id);
         }
+
         /// <summary>
         /// Disable group<br />
         /// <br />
@@ -144,13 +142,14 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </summary>
         /// <param name="name">Group's name</param>
         [HttpDelete("{name}")]
-        public JsonResult Disable(string name)
-        {
+        public JsonResult Disable(string name) {
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult)) return PermissionDenied(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult))
+                return PermissionDenied(verifyResult);
             var group = FindGroup(name);
             if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
-            if (user.UserGroup == group.Id) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf);
+            if (user.UserGroup == group.Id)
+                return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf);
             group.Disabled = true;
             Database.SaveChanges();
             Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "UserGroup", group.Id)
@@ -158,6 +157,7 @@ namespace EKIFVK.ChemicalLab.Controllers
                 .AddData("name", name));
             return BasicResponse();
         }
+
         /// <summary>
         /// Modify user's information<br />
         /// <br />
@@ -191,18 +191,19 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </list>
         /// </param>
         [HttpPatch("{name}")]
-        public JsonResult ChangeGroupInformation(string name, [FromBody] Hashtable parameter)
-        {
+        public JsonResult ChangeGroupInformation(string name, [FromBody] Hashtable parameter) {
             var user = FindUser();
             if (user == null) return NonexistentToken();
             var target = FindGroup(name);
             if (target == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
             var finalData = new JObject();
-            if (parameter.ContainsKey("name"))
-            {
-                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
+            if (parameter.ContainsKey("name")) {
+                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult))
+                    return PermissionDenied(verifyResult, finalData);
                 var newName = parameter["name"].ToString();
-                if (FindGroup(newName) != null) return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist, finalData);
+                if (FindGroup(newName) != null)
+                    return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist,
+                        finalData);
                 var previousValue = target.Name;
                 target.Name = newName;
                 finalData.Add("n", true);
@@ -212,9 +213,9 @@ namespace EKIFVK.ChemicalLab.Controllers
                     .Add("old", previousValue)
                     .Add("new", target.Name));
             }
-            if (parameter.ContainsKey("note"))
-            {
-                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
+            if (parameter.ContainsKey("note")) {
+                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult))
+                    return PermissionDenied(verifyResult, finalData);
                 var previousValue = target.Note;
                 target.Note = parameter["note"].ToString();
                 finalData.Add("d", true);
@@ -224,9 +225,9 @@ namespace EKIFVK.ChemicalLab.Controllers
                     .Add("old", previousValue)
                     .Add("new", target.Disabled));
             }
-            if (parameter.ContainsKey("permission"))
-            {
-                if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult)) return PermissionDenied(verifyResult, finalData);
+            if (parameter.ContainsKey("permission")) {
+                if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult))
+                    return PermissionDenied(verifyResult, finalData);
                 var previousValue = target.Permission;
                 target.Permission = parameter["permission"].ToString();
                 finalData.Add("p", true);
@@ -239,11 +240,12 @@ namespace EKIFVK.ChemicalLab.Controllers
             if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
             {
                 if (FindGroup(user) == target)
-                    return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotChangeSelfGroupDisabled, finalData);
+                    return BasicResponse(StatusCodes.Status403Forbidden,
+                        _configuration.Value.CannotChangeSelfGroupDisabled, finalData);
                 if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult))
                     return PermissionDenied(verifyResult, finalData);
                 var previousValue = target.Disabled;
-                target.Disabled = (bool)parameter["disabled"];
+                target.Disabled = (bool) parameter["disabled"];
                 finalData.Add("r", true);
                 Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
                     .AddContent(_configuration.Value.ChangeGroupDisabledLog)
@@ -253,6 +255,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             }
             return BasicResponse(data: finalData);
         }
+
         /// <summary>
         /// Get groups' total count<br />
         /// <br />
@@ -271,12 +274,12 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// </summary>
         /// <param name="filter">Search filter</param>
         [HttpGet(".count")]
-        public JsonResult GetGroupCount(GroupSearchFilter filter)
-        {
+        public JsonResult GetGroupCount(GroupSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
             return BasicResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Count());
         }
+
         /// <summary>
         /// Get list of groups<br />
         /// <br />
@@ -300,14 +303,13 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <param name="filter">Search filter</param>
         /// <returns></returns>
         [HttpGet(".list")]
-        public JsonResult GetGroupList(GroupSearchFilter filter)
-        {
+        public JsonResult GetGroupList(GroupSearchFilter filter) {
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult)) return PermissionDenied(verifyResult);
+            if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult))
+                return PermissionDenied(verifyResult);
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return BasicResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Select(e => new Hashtable
-            {
+            return BasicResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Select(e => new Hashtable {
                 {"n", e.Name},
                 {"d", e.Note},
                 {"p", e.Permission},
@@ -315,27 +317,23 @@ namespace EKIFVK.ChemicalLab.Controllers
             }).ToArray());
         }
 
-        private static string QueryGenerator(GroupSearchFilter filter, ICollection<object> param)
-        {
+        private static string QueryGenerator(GroupSearchFilter filter, ICollection<object> param) {
             //? MySql connector for .net core still does not support Take() and Skip() in this version
             //? which means we can only form SQL query manually
             //? Also, LIMIT in mysql has significant performnce issue so we will not use LIMIT
             var condition = new List<string>();
             var paramCount = -1;
-            if (!string.IsNullOrEmpty(filter.Name))
-            {
+            if (!string.IsNullOrEmpty(filter.Name)) {
                 condition.Add("Name LIKE CONCAT('%',@p" + ++paramCount + ",'%')");
                 param.Add(filter.Name);
             }
-            if (filter.Disabled.HasValue)
-            {
+            if (filter.Disabled.HasValue) {
                 condition.Add("Disabled = @p" + ++paramCount);
                 param.Add(filter.Disabled.Value ? 1 : 0);
             }
             var query = "";
             if (condition.Count > 0) query = string.Join(" AND ", condition);
-            if (filter.Skip.HasValue && filter.Skip.Value > 0)
-            {
+            if (filter.Skip.HasValue && filter.Skip.Value > 0) {
                 query = "SELECT * FROM UserGroup WHERE ID >= (SELECT ID FROM UserGroup WHERE " + query +
                         " ORDER BY ID LIMIT @p" + ++paramCount +
                         ",1)" + (query.Length > 0 ? " AND " : "") + query;
@@ -343,8 +341,7 @@ namespace EKIFVK.ChemicalLab.Controllers
             }
             else
                 query = "SELECT * FROM UserGroup WHERE " + query;
-            if (filter.Take.HasValue)
-            {
+            if (filter.Take.HasValue) {
                 query += " LIMIT @p" + ++paramCount;
                 param.Add(filter.Take.Value);
             }
