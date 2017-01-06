@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public partial class User : BasicDisableSimpleTable
-    {
-        public User()
-        {
+namespace EKIFVK.ChemicalLab.Models {
+    public partial class User : BasicDisableSimpleTable {
+        public User() {
             Items = new HashSet<Item>();
         }
 
@@ -20,6 +17,6 @@ namespace EKIFVK.ChemicalLab.Models
 
         public virtual UserGroup UserGroupNavigation { get; set; }
         public virtual ICollection<Item> Items { get; set; }
-        public virtual ICollection<ModifyHistory> ModifyHistories { get; set; }
+        public virtual ICollection<TrackHistory> ModifyHistories { get; set; }
     }
 }

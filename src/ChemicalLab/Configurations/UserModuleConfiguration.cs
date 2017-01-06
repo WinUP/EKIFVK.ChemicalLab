@@ -1,14 +1,12 @@
-﻿namespace EKIFVK.ChemicalLab.Configurations
-{
-    public class UserModuleConfiguration
-    {
+﻿namespace EKIFVK.ChemicalLab.Configurations {
+    public class UserModuleConfiguration {
+        //Basic consts
         public string NoTargetUser { get; set; }
         public string NoTargetGroup { get; set; }
         public string InvalidUsernameFormat { get; set; }
         public string UserAlreadyExist { get; set; }
         public string WrongPassword { get; set; }
         public string DisabledUser { get; set; }
-        public string CannotRemoveSelf { get; set; }
         public string CannotSingOutOthers { get; set; }
         public string CannotChangeSelfGroup { get; set; }
         public string CannotDisableSelf { get; set; }
@@ -16,8 +14,10 @@
         public string GroupAlreadyExist { get; set; }
         public string CannotChangeSelfGroupDisabled { get; set; }
 
+        //Server configurations
         public string DefaulPasswordHash { get; set; }
 
+        //Permission groups
         public string UserManagePermission { get; set; }
         public string UserAddingPermission { get; set; }
         public string UserModifyDisabledPermission { get; set; }
@@ -30,25 +30,37 @@
         public string GroupModifyPermissionPermission { get; set; }
         public string GroupModifyDisabledPermission { get; set; }
 
-        public string GetUserInfoLog { get; set; }
-        public string RegisterExistentUserLog { get; set; }
-        public string RegisterUserLog { get; set; }
-        public string SingInLog { get; set; }
-        public string TrySignOutOtherUserLog { get; set; }
-        public string SingOutLog { get; set; }
-        public string TryDisableSelfLog { get; set; }
-        public string DisableUserLog { get; set; }
-        public string ResetPasswordLog { get; set; }
-        public string ChangePasswordLog { get; set; }
-        public string TryChangeSelfGroupLog { get; set; }
-        public string ChangeUserGroupLog { get; set; }
-        public string ChangeUserAllowMultipleLoginLog { get; set; }
-        public string ChangeUserDisabledLog { get; set; }
-        public string AddGroupLog { get; set; }
-        public string DisableGroupLog { get; set; }
-        public string ChangeGroupNameLog { get; set; }
-        public string ChangeGroupNoteLog { get; set; }
-        public string ChangeGroupPermissionLog { get; set; }
-        public string ChangeGroupDisabledLog { get; set; }
+        //Table name confidurations
+        public string UserTable { get; set; }
+        public string UserGroupTable { get; set; }
+
+        //Table column name configurations
+        public string UserTableAccessToken { get; set; }
+        public string UserTableDisabled { get; set; }
+        public string UserTablePassword { get; set; }
+        public string UserTableGroup { get; set; }
+        public string UserTableAllowMultipleLogin { get; set; }
+        public string UserGroupTableDisabled { get; set; }
+        public string UserGroupTableName { get; set; }
+        public string UserGroupTableNote { get; set; }
+        public string UserGroupTablePermission { get; set; }
+
+        //Extended consts
+        public string GetUserInfo { get; set; }
+        public string AddUser { get; set; }
+        public string SingIn { get; set; }
+        public string SingOut { get; set; }
+        public string DisableUser { get; set; }
+        public string ResetPassword { get; set; }
+        public string ChangePassword { get; set; }
+        public string ChangeUserGroup { get; set; }
+        public string ChangeUserAllowMultipleLogin { get; set; }
+        public string ChangeUserDisabled { get; set; }
+        public string AddGroup { get; set; }
+        public string DisableGroup { get; set; }
+        public string ChangeGroupName { get; set; }
+        public string ChangeGroupNote { get; set; }
+        public string ChangeGroupPermission { get; set; }
+        public string ChangeGroupDisabled { get; set; }
     }
 }

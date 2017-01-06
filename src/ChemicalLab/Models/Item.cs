@@ -1,10 +1,7 @@
 ﻿using System;
-using MySql.Data.Types;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public partial class Item : BasicDisableTable
-    {
+namespace EKIFVK.ChemicalLab.Models {
+    public partial class Item : BasicDisableTable {
         public int Id { get; set; }
         public int Detail { get; set; }
         public DateTime RegisterTime { get; set; }
@@ -15,7 +12,7 @@ namespace EKIFVK.ChemicalLab.Models
         public int Experiment { get; set; }
         public int Vendor { get; set; }
         public double Used { get; set; }
-        
+
         public virtual ItemDetail DetailNavigation { get; set; }
         public virtual Location LocationNavigation { get; set; }
         public virtual User OwnerNavigation { get; set; }

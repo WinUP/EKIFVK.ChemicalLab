@@ -8,10 +8,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using EKIFVK.ChemicalLab.Models;
-using EKIFVK.ChemicalLab.SearchFilter;
+using EKIFVK.ChemicalLab.Filters;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Authentication;
-using EKIFVK.ChemicalLab.Services.Logging;
+using EKIFVK.ChemicalLab.Services.Tracking;
 
 namespace EKIFVK.ChemicalLab.Controllers {
     /// <summary>
@@ -29,12 +29,12 @@ namespace EKIFVK.ChemicalLab.Controllers {
     /// </summary>
     [Route("api/v1/user")]
     public class UserController : BasicVerifiableController {
-        private readonly IOptions<UserModuleConfiguration> _configuration;
+        private readonly IOptions<UserModuleConfiguration> _setting;
 
-        public UserController(ChemicalLabContext database, IAuthentication verifier, ILoggingService logger,
-            IOptions<UserModuleConfiguration> configuration)
-            : base(database, verifier, logger) {
-            _configuration = configuration;
+        public UserController(ChemicalLabContext database, IAuthentication verifier, ITrackService tracker,
+            IOptions<UserModuleConfiguration> setting)
+            : base(database, verifier, tracker) {
+            _setting = setting;
         }
 
         /// <summary>
@@ -65,25 +65,23 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <param name="name">Target user's name</param>
         [HttpGet("{name}")]
         public JsonResult GetInfo(string name) {
-            var currentUser = FindUser();
-            if (!Verify(currentUser, _configuration.Value.UserManagePermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
-            var targetUser = FindUser(name);
-            if (targetUser == null)
-                return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
+            if (!Verify(Session, _setting.Value.UserManagePermission, out var verifyResult))
+                return Denied(verifyResult);
+            var target = FindUser(name);
+            if (target == null)
+                return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetUser);
             var response = BasicResponse(data: new Hashtable {
-                {"n", targetUser.Name},
-                {"d", targetUser.DisplayName},
-                {"g", FindGroup(targetUser).Name},
-                {"t", targetUser.LastAccessTime},
-                {"a", targetUser.LastAccessAddress},
-                {"m", targetUser.AllowMultiAddressLogin},
-                {"r", targetUser.Disabled},
-                {"u", targetUser.LastUpdate}
+                {"n", target.Name},
+                {"d", target.DisplayName},
+                {"g", FindGroup(target).Name},
+                {"t", target.LastAccessTime},
+                {"a", target.LastAccessAddress},
+                {"m", target.AllowMultiAddressLogin},
+                {"r", target.Disabled},
+                {"u", target.LastUpdate}
             });
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel3, currentUser)
-                .AddContent(_configuration.Value.GetUserInfoLog)
-                .AddData("name", name));
+            Tracker.Write(new TrackRecord(TrackType.InfoL3, Session, _setting.Value.UserTable, target.Id, "ALL")
+                .AddNote(_setting.Value.GetUserInfo));
             return response;
         }
 
@@ -120,33 +118,29 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("?", StringComparison.Ordinal) > -1 ||
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
-                return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidUsernameFormat);
-            var currentUser = FindUser();
-            if (!Verify(currentUser, _configuration.Value.UserAddingPermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
-            var targetUser = FindUser(name);
-            if (targetUser != null) {
-                Logger.Write(new LoggingRecord(LoggingType.ErrorLevel1, currentUser, "User", targetUser.Id)
-                    .AddContent(_configuration.Value.RegisterExistentUserLog)
-                    .AddData("name", name));
-                return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.UserAlreadyExist);
+                return BasicResponse(StatusCodes.Status400BadRequest, _setting.Value.InvalidUsernameFormat);
+            if (!Verify(Session, _setting.Value.UserAddingPermission, out var verifyResult))
+                return Denied(verifyResult);
+            var newUser = FindUser(name);
+            if (newUser != null) {
+                Tracker.Write(new TrackRecord(TrackType.ErrorL1, Session, _setting.Value.UserTable, newUser.Id, "")
+                    .AddNote(_setting.Value.UserAlreadyExist));
+                return BasicResponse(StatusCodes.Status409Conflict, _setting.Value.UserAlreadyExist);
             }
-            var usergroupId = int.Parse(parameter["group"].ToString());
-            var usergroup = Database.UserGroups.FirstOrDefault(e => e.Id == usergroupId);
-            if (usergroup == null)
-                return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
-            targetUser = new User {
+            var groupId = int.Parse(parameter["group"].ToString());
+            var group = Database.UserGroups.FirstOrDefault(e => e.Id == groupId);
+            if (group == null)
+                return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetGroup);
+            newUser = new User {
                 Name = name.ToLower(),
-                Password = _configuration.Value.DefaulPasswordHash,
-                UserGroupNavigation = usergroup,
+                Password = _setting.Value.DefaulPasswordHash,
+                UserGroupNavigation = group,
                 LastUpdate = DateTime.Now
             };
-            Database.Users.Add(targetUser);
-            Database.SaveChanges();
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                .AddContent(_configuration.Value.RegisterUserLog)
-                .AddData("name", name));
-            return BasicResponse(data: targetUser.Id);
+            Database.Users.Add(newUser);
+            Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, newUser.Id, "")
+                .AddNote(_setting.Value.AddUser));
+            return BasicResponse(data: newUser.Id);
         }
 
         /// <summary>
@@ -170,28 +164,31 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <param name="password">Uppercase SHA256 of password</param>
         [HttpPut("{name}/token")]
         public JsonResult SignIn(string name, string password) {
+            //! What is allow multiple login:
+            //! By checking this, user can use its account with different browser or different computer at the same time
             var user = FindUser(name);
-            if (user == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
+            if (user == null)
+                return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetUser);
             if (user.Password != password)
-                return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.WrongPassword);
-            if (user.Disabled) return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
-            if (FindGroup(user).Disabled)
-                return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.DisabledUser);
+                return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.WrongPassword);
+            if (user.Disabled || FindGroup(user).Disabled)
+                return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.DisabledUser);
             if (user.AllowMultiAddressLogin && Verify(user, "") == VerifyResult.Passed) {
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", user.Id)
-                    .AddContent(_configuration.Value.SingInLog)
-                    .AddData("name", name));
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, user, _setting.Value.UserTable, user.Id, _setting.Value.UserTableAccessToken)
+                    .AddNote(_setting.Value.SingIn)
+                    .AddPreviousData(user.AccessToken)
+                    .AddNewData(user.AccessToken));
                 return BasicResponse(data: user.AccessToken);
             }
-            var token = Guid.NewGuid().ToString().ToUpper();
-            user.AccessToken = token;
+            var previousToken = user.AccessToken;
+            user.AccessToken = Guid.NewGuid().ToString().ToUpper();
             Verifier.UpdateAccessTime(user);
             Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
-            Database.SaveChanges();
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", user.Id)
-                .AddContent(_configuration.Value.SingInLog)
-                .AddData("name", name));
-            return BasicResponse(data: token);
+            Tracker.Write(new TrackRecord(TrackType.InfoL1, user, _setting.Value.UserTable, user.Id, _setting.Value.UserTableAccessToken)
+                .AddNote(_setting.Value.SingIn)
+                .AddPreviousData(previousToken)
+                .AddNewData(user.AccessToken));
+            return BasicResponse(data: user.AccessToken);
         }
 
         /// <summary>
@@ -215,21 +212,20 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <returns></returns>
         [HttpDelete("{name}/token")]
         public JsonResult SignOut(string name) {
-            var user = FindUser();
-            if (user == null) return NonexistentToken();
-            if (!IsUserNameEqual(user.Name, name)) {
-                Logger.Write(new LoggingRecord(LoggingType.ErrorLevel1, user, "User", user.Id)
-                    .AddContent(_configuration.Value.TrySignOutOtherUserLog)
-                    .AddData("name", name));
-                return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotSingOutOthers);
+            if (Session == null) return NonexistentToken();
+            if (!IsUserNameEqual(Session.Name, name)) {
+                Tracker.Write(new TrackRecord(TrackType.ErrorL1, Session, _setting.Value.UserTable, Session.Id, "")
+                    .AddNote(_setting.Value.CannotSingOutOthers));
+                return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.CannotSingOutOthers);
             }
-            user.AccessToken = null;
-            Verifier.UpdateAccessTime(user);
-            Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
-            Database.SaveChanges();
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", user.Id)
-                .AddContent(_configuration.Value.SingOutLog)
-                .AddData("name", name));
+            var previousToken = Session.AccessToken;
+            Session.AccessToken = null;
+            Verifier.UpdateAccessTime(Session);
+            Verifier.UpdateAccessAddress(Session, HttpContext.Connection.RemoteIpAddress);
+            Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, Session.Id, _setting.Value.UserTableAccessToken)
+                .AddNote(_setting.Value.SingOut)
+                .AddPreviousData(previousToken)
+                .AddNewData(""));
             return BasicResponse();
         }
 
@@ -254,23 +250,22 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <param name="name">User's name</param>
         [HttpDelete("{name}")]
         public JsonResult Disable(string name) {
-            var currentUser = FindUser();
-            if (!Verify(currentUser, _configuration.Value.UserModifyDisabledPermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
-            if (IsUserNameEqual(currentUser.Name, name)) {
-                Logger.Write(new LoggingRecord(LoggingType.ErrorLevel1, currentUser, "User", currentUser.Id)
-                    .AddContent(_configuration.Value.TryDisableSelfLog)
-                    .AddData("name", name));
-                return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotRemoveSelf);
+            if (!Verify(Session, _setting.Value.UserModifyDisabledPermission, out var verifyResult))
+                return Denied(verifyResult);
+            if (IsUserNameEqual(Session.Name, name)) {
+                Tracker.Write(new TrackRecord(TrackType.ErrorL1, Session, _setting.Value.UserTable, Session.Id, "")
+                    .AddNote(_setting.Value.CannotDisableSelf));
+                return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.CannotDisableSelf);
             }
-            var targetUser = FindUser(name);
-            if (targetUser == null)
-                return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
-            targetUser.Disabled = true;
-            Database.SaveChanges();
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                .AddContent(_configuration.Value.DisableUserLog)
-                .AddData("name", name));
+            var target = FindUser(name);
+            if (target == null)
+                return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetUser);
+            target.Disabled = true;
+            target.LastUpdate = DateTime.Now;
+            Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, target.Id, _setting.Value.UserTableDisabled)
+                .AddNote(_setting.Value.DisableUser)
+                .AddPreviousData(true)
+                .AddNewData(false));
             return BasicResponse();
         }
 
@@ -313,79 +308,78 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// </param>
         [HttpPatch("{name}")]
         public JsonResult ChangeUserInformation(string name, [FromBody] Hashtable parameter) {
-            var currentUser = FindUser();
-            if (currentUser == null) return NonexistentToken();
-            var targetUser = FindUser(name);
-            if (targetUser == null)
-                return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetUser);
+            if (Session == null)
+                return NonexistentToken();
+            var target = FindUser(name);
+            if (target == null)
+                return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetUser);
             var finalData = new JObject();
             if (parameter.ContainsKey("password")) {
-                if (currentUser != targetUser) {
-                    if (!Verify(currentUser, _configuration.Value.UserResetPasswordPermission, out var verifyResult))
-                        return PermissionDenied(verifyResult, finalData);
-                    targetUser.Password = _configuration.Value.DefaulPasswordHash;
-                    Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                        .AddContent(_configuration.Value.ResetPasswordLog)
-                        .AddData("name", name));
+                var previous = target.Password;
+                string note;
+                if (Session != target) {
+                    if (!Verify(Session, _setting.Value.UserResetPasswordPermission, out var verifyResult))
+                        return Denied(verifyResult, finalData);
+                    note = _setting.Value.ResetPassword;
+                    target.Password = _setting.Value.DefaulPasswordHash;
                 }
                 else {
-                    targetUser.Password = parameter["password"].ToString();
-                    Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                        .AddContent(_configuration.Value.ChangePasswordLog)
-                        .AddData("name", name));
+                    note = _setting.Value.ChangePassword;
+                    target.Password = parameter["password"].ToString();
                 }
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, target.Id, _setting.Value.UserTablePassword)
+                    .AddNote(note)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.Password));
                 finalData.Add("p", true);
             }
             if (parameter.ContainsKey("group")) {
-                if (currentUser == targetUser) {
-                    Logger.Write(new LoggingRecord(LoggingType.ErrorLevel1, currentUser, "User", targetUser.Id)
-                        .AddContent(_configuration.Value.TryChangeSelfGroupLog)
-                        .AddData("name", name));
-                    return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotChangeSelfGroup,
-                        finalData);
+                if (Session == target) {
+                    Tracker.Write(new TrackRecord(TrackType.ErrorL1, Session, _setting.Value.UserTable, target.Id, _setting.Value.UserTableGroup)
+                        .AddNote(_setting.Value.CannotChangeSelfGroup));
+                    return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.CannotChangeSelfGroup, finalData);
                 }
-                if (!Verify(currentUser, _configuration.Value.UserChangeGroupPermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
+                if (!Verify(Session, _setting.Value.UserChangeGroupPermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
                 var group = FindGroup(parameter["group"].ToString());
                 if (group == null)
-                    return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup, finalData);
-                var previousGroupName = FindGroup(targetUser).Name;
-                targetUser.UserGroupNavigation = group;
+                    return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetGroup, finalData);
+                var previous = FindGroup(target).Name;
+                target.UserGroupNavigation = group;
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, target.Id, _setting.Value.UserTableGroup)
+                    .AddNote(_setting.Value.ChangeUserGroup)
+                    .AddPreviousData(previous)
+                    .AddNewData(group.Name));
                 finalData.Add("g", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                    .AddContent(_configuration.Value.ChangeUserGroupLog)
-                    .AddData("name", name)
-                    .Add("old", previousGroupName)
-                    .Add("new", group.Name));
             }
             if (parameter.ContainsKey("allowMulti")) {
-                if (currentUser != targetUser &&
-                    !Verify(currentUser, _configuration.Value.UserModifyPermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
-                var previousValue = targetUser.AllowMultiAddressLogin;
-                targetUser.AllowMultiAddressLogin = (bool) parameter["allowMulti"];
+                if (Session != target && !Verify(Session, _setting.Value.UserModifyPermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
+                var previous = target.AllowMultiAddressLogin;
+                target.AllowMultiAddressLogin = (bool) parameter["allowMulti"];
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, target.Id, _setting.Value.UserTableAllowMultipleLogin)
+                    .AddNote(_setting.Value.ChangeUserAllowMultipleLogin)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.AllowMultiAddressLogin));
                 finalData.Add("m", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                    .AddContent(_configuration.Value.ChangeUserAllowMultipleLoginLog)
-                    .AddData("name", name)
-                    .Add("old", previousValue)
-                    .Add("new", targetUser.AllowMultiAddressLogin));
             }
             if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
             {
-                if (currentUser == targetUser)
-                    return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf,
-                        finalData);
-                if (!Verify(currentUser, _configuration.Value.UserDisablePermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
-                var previousValue = targetUser.Disabled;
-                targetUser.Disabled = (bool) parameter["disabled"];
+                if (Session == target)
+                    return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.CannotDisableSelf, finalData);
+                if (!Verify(Session, _setting.Value.UserDisablePermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
+                var previous = target.Disabled;
+                target.Disabled = (bool) parameter["disabled"];
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserTable, target.Id, _setting.Value.UserTableDisabled)
+                    .AddNote(_setting.Value.ChangeUserDisabled)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.AllowMultiAddressLogin));
                 finalData.Add("r", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, currentUser, "User", targetUser.Id)
-                    .AddContent(_configuration.Value.ChangeUserDisabledLog)
-                    .AddData("name", name)
-                    .Add("old", previousValue)
-                    .Add("new", targetUser.Disabled));
             }
             return BasicResponse(data: finalData);
         }
@@ -443,8 +437,8 @@ namespace EKIFVK.ChemicalLab.Controllers {
         [HttpGet(".list")]
         public JsonResult GetUserList(UserSearchFilter filter) {
             var user = FindUser();
-            if (!Verify(user, _configuration.Value.UserManagePermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
+            if (!Verify(user, _setting.Value.UserManagePermission, out var verifyResult))
+                return Denied(verifyResult);
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
             return BasicResponse(data: Database.Users.FromSql(query, param.ToArray()).Select(e => new Hashtable {

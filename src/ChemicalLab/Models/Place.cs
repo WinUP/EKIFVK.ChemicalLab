@@ -1,11 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public partial class Place : BasicRecordableSimpleTable
-    {
-        public Place()
-        {
+namespace EKIFVK.ChemicalLab.Models {
+    public partial class Place : BasicRecordableSimpleTable {
+        public Place() {
             Locations = new HashSet<Location>();
         }
 

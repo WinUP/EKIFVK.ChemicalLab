@@ -8,10 +8,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json.Linq;
 using EKIFVK.ChemicalLab.Models;
-using EKIFVK.ChemicalLab.SearchFilter;
+using EKIFVK.ChemicalLab.Filters;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Authentication;
-using EKIFVK.ChemicalLab.Services.Logging;
+using EKIFVK.ChemicalLab.Services.Tracking;
 
 namespace EKIFVK.ChemicalLab.Controllers {
     /// <summary>
@@ -27,12 +27,12 @@ namespace EKIFVK.ChemicalLab.Controllers {
     /// </summary>
     [Route("api/v1/usergroup")]
     public class UserGroupController : BasicVerifiableController {
-        private readonly IOptions<UserModuleConfiguration> _configuration;
+        private readonly IOptions<UserModuleConfiguration> _setting;
 
-        public UserGroupController(ChemicalLabContext database, IAuthentication verifier, ILoggingService logger,
-            IOptions<UserModuleConfiguration> configuration)
-            : base(database, verifier, logger) {
-            _configuration = configuration;
+        public UserGroupController(ChemicalLabContext database, IAuthentication verifier, ITrackService tracker,
+            IOptions<UserModuleConfiguration> setting)
+            : base(database, verifier, tracker) {
+            _setting = setting;
         }
 
         /// <summary>
@@ -59,7 +59,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
         [HttpGet("{name}")]
         public JsonResult GetInfo(string name) {
             var group = FindGroup(name);
-            if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
+            if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetGroup);
             return BasicResponse(data: new Hashtable {
                 {"n", group.Name},
                 {"d", group.Note},
@@ -101,24 +101,21 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
                 name.IndexOf("?", StringComparison.Ordinal) > -1 ||
                 name.IndexOf(".", StringComparison.Ordinal) == 0)
-                return BasicResponse(StatusCodes.Status400BadRequest, _configuration.Value.InvalidGroupNameFormat);
-            var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupAddingPermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
+                return BasicResponse(StatusCodes.Status400BadRequest, _setting.Value.InvalidGroupNameFormat);
+            if (!Verify(Session, _setting.Value.GroupAddingPermission, out var verifyResult))
+                return Denied(verifyResult);
             var group = FindGroup(name);
             if (group != null)
-                return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist);
+                return BasicResponse(StatusCodes.Status409Conflict, _setting.Value.GroupAlreadyExist);
             group = new UserGroup {
                 Name = name,
                 Note = parameter["note"].ToString(),
-                Permission = parameter["permission"].ToString()
+                Permission = parameter["permission"].ToString(),
+                LastUpdate = DateTime.Now
             };
             Database.UserGroups.Add(group);
-            Database.SaveChanges();
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel3, user, "UserGroup", group.Id)
-                .AddContent(_configuration.Value.AddGroupLog)
-                .AddData("name", name)
-                .AddData("permission", group.Permission));
+            Tracker.Write(new TrackRecord(TrackType.InfoL3, Session, _setting.Value.UserGroupTable, group.Id, "")
+                .AddNote(_setting.Value.AddGroup));
             return BasicResponse(data: group.Id);
         }
 
@@ -143,18 +140,19 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <param name="name">Group's name</param>
         [HttpDelete("{name}")]
         public JsonResult Disable(string name) {
-            var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
+            if (!Verify(Session, _setting.Value.GroupModifyDisabledPermission, out var verifyResult))
+                return Denied(verifyResult);
             var group = FindGroup(name);
-            if (group == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
-            if (user.UserGroup == group.Id)
-                return BasicResponse(StatusCodes.Status403Forbidden, _configuration.Value.CannotDisableSelf);
+            if (group == null)
+                return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetGroup);
+            if (Session.UserGroup == group.Id)
+                return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.CannotDisableSelf);
             group.Disabled = true;
-            Database.SaveChanges();
-            Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "UserGroup", group.Id)
-                .AddContent(_configuration.Value.DisableGroupLog)
-                .AddData("name", name));
+            group.LastUpdate = DateTime.Now;
+            Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserGroupTable, group.Id, _setting.Value.UserGroupTableDisabled)
+                .AddNote(_setting.Value.DisableGroup)
+                .AddPreviousData(true)
+                .AddNewData(false));
             return BasicResponse();
         }
 
@@ -192,66 +190,64 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// </param>
         [HttpPatch("{name}")]
         public JsonResult ChangeGroupInformation(string name, [FromBody] Hashtable parameter) {
-            var user = FindUser();
-            if (user == null) return NonexistentToken();
+            if (Session == null) return NonexistentToken();
             var target = FindGroup(name);
-            if (target == null) return BasicResponse(StatusCodes.Status404NotFound, _configuration.Value.NoTargetGroup);
+            if (target == null) return BasicResponse(StatusCodes.Status404NotFound, _setting.Value.NoTargetGroup);
             var finalData = new JObject();
             if (parameter.ContainsKey("name")) {
-                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
+                if (!Verify(Session, _setting.Value.GroupManagePermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
                 var newName = parameter["name"].ToString();
                 if (FindGroup(newName) != null)
-                    return BasicResponse(StatusCodes.Status409Conflict, _configuration.Value.GroupAlreadyExist,
-                        finalData);
-                var previousValue = target.Name;
+                    return BasicResponse(StatusCodes.Status409Conflict, _setting.Value.GroupAlreadyExist, finalData);
+                var previous = target.Name;
                 target.Name = newName;
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserGroupTable, target.Id, _setting.Value.UserGroupTableName)
+                    .AddNote(_setting.Value.ChangeGroupName)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.Name));
                 finalData.Add("n", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
-                    .AddContent(_configuration.Value.ChangeUserGroupLog)
-                    .AddData("name", name)
-                    .Add("old", previousValue)
-                    .Add("new", target.Name));
             }
             if (parameter.ContainsKey("note")) {
-                if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
-                var previousValue = target.Note;
+                if (!Verify(Session, _setting.Value.GroupManagePermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
+                var previous = target.Note;
                 target.Note = parameter["note"].ToString();
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserGroupTable, target.Id, _setting.Value.UserGroupTableNote)
+                    .AddNote(_setting.Value.ChangeGroupNote)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.Note));
                 finalData.Add("d", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
-                    .AddContent(_configuration.Value.ChangeGroupNoteLog)
-                    .AddData("name", name)
-                    .Add("old", previousValue)
-                    .Add("new", target.Disabled));
             }
             if (parameter.ContainsKey("permission")) {
-                if (!Verify(user, _configuration.Value.GroupModifyPermissionPermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
-                var previousValue = target.Permission;
+                if (!Verify(Session, _setting.Value.GroupModifyPermissionPermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
+                var previous = target.Permission;
                 target.Permission = parameter["permission"].ToString();
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserGroupTable, target.Id, _setting.Value.UserGroupTablePermission)
+                    .AddNote(_setting.Value.ChangeGroupPermission)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.Permission));
                 finalData.Add("p", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
-                    .AddContent(_configuration.Value.ChangeGroupPermissionLog)
-                    .AddData("name", name)
-                    .Add("old", previousValue)
-                    .Add("new", target.Disabled));
             }
-            if (!parameter.ContainsKey("disabled")) return BasicResponse(data: finalData);
+            if (!parameter.ContainsKey("disabled"))
+                return BasicResponse(data: finalData);
             {
-                if (FindGroup(user) == target)
-                    return BasicResponse(StatusCodes.Status403Forbidden,
-                        _configuration.Value.CannotChangeSelfGroupDisabled, finalData);
-                if (!Verify(user, _configuration.Value.GroupModifyDisabledPermission, out var verifyResult))
-                    return PermissionDenied(verifyResult, finalData);
-                var previousValue = target.Disabled;
+                if (FindGroup(Session) == target)
+                    return BasicResponse(StatusCodes.Status403Forbidden, _setting.Value.CannotChangeSelfGroupDisabled, finalData);
+                if (!Verify(Session, _setting.Value.GroupModifyDisabledPermission, out var verifyResult))
+                    return Denied(verifyResult, finalData);
+                var previous = target.Disabled;
                 target.Disabled = (bool) parameter["disabled"];
+                target.LastUpdate = DateTime.Now;
+                Tracker.Write(new TrackRecord(TrackType.InfoL1, Session, _setting.Value.UserGroupTable, target.Id, _setting.Value.UserGroupTableDisabled)
+                    .AddNote(_setting.Value.ChangeGroupDisabled)
+                    .AddPreviousData(previous)
+                    .AddNewData(target.Permission));
                 finalData.Add("r", true);
-                Logger.Write(new LoggingRecord(LoggingType.InfoLevel1, user, "User", target.Id)
-                    .AddContent(_configuration.Value.ChangeGroupDisabledLog)
-                    .AddData("name", name)
-                    .Add("old", previousValue)
-                    .Add("new", target.Disabled));
             }
             return BasicResponse(data: finalData);
         }
@@ -304,9 +300,8 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <returns></returns>
         [HttpGet(".list")]
         public JsonResult GetGroupList(GroupSearchFilter filter) {
-            var user = FindUser();
-            if (!Verify(user, _configuration.Value.GroupManagePermission, out var verifyResult))
-                return PermissionDenied(verifyResult);
+            if (!Verify(Session, _setting.Value.GroupManagePermission, out var verifyResult))
+                return Denied(verifyResult);
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
             return BasicResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Select(e => new Hashtable {

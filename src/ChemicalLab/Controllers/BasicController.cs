@@ -2,13 +2,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 
-namespace EKIFVK.ChemicalLab.Controllers
-{
+namespace EKIFVK.ChemicalLab.Controllers {
     /// <summary>
     /// Controller with support of EKIFVK regular json response
     /// </summary>
-    public class BasicController : Controller
-    {
+    public class BasicController : Controller {
         /// <summary>
         /// Get a regular EKIFVK json response
         /// </summary>
@@ -16,8 +14,8 @@ namespace EKIFVK.ChemicalLab.Controllers
         /// <param name="message">Message which should be returned (default null)</param>
         /// <param name="data">Data which should be returned (default null)</param>
         /// <returns>Json response</returns>
-        protected JsonResult BasicResponse(int statusCode = StatusCodes.Status200OK, string message = null, object data = null)
-        {
+        protected JsonResult BasicResponse(int statusCode = StatusCodes.Status200OK, string message = null,
+            object data = null) {
             Response.StatusCode = statusCode;
             return Json(new Hashtable {{"d", data ?? ""}, {"m", message ?? "SUCCESS"}});
         }

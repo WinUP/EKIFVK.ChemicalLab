@@ -1,30 +1,36 @@
-﻿namespace EKIFVK.ChemicalLab.Services.Logging
-{
-    public enum LoggingType
-    {
+﻿namespace EKIFVK.ChemicalLab.Services.Tracking {
+    /// <summary>
+    /// Track history type
+    /// </summary>
+    public enum TrackType {
         /// <summary>
-        /// Database change
+        /// Database changed
         /// </summary>
-        InfoLevel1,
+        InfoL1,
+
         /// <summary>
         /// Permission request passed
         /// </summary>
-        InfoLevel2,
+        InfoL2,
+
         /// <summary>
         /// Information returned
         /// </summary>
-        InfoLevel3,
+        InfoL3,
+
         /// <summary>
-        /// Any other error
+        /// Database changing failed
         /// </summary>
-        ErrorLevel1,
+        ErrorL1,
+
         /// <summary>
         /// Permission request failed
         /// </summary>
-        ErrorLevel2,
+        ErrorL2,
+
         /// <summary>
         /// System error
         /// </summary>
-        ErrorLevel3
+        ErrorL3
     }
 }

@@ -1,11 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public partial class UserGroup : BasicDisableSimpleTable
-    {
-        public UserGroup()
-        {
+namespace EKIFVK.ChemicalLab.Models {
+    public partial class UserGroup : BasicDisableSimpleTable {
+        public UserGroup() {
             Users = new HashSet<User>();
         }
 

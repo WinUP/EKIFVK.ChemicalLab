@@ -1,56 +1,54 @@
 ﻿using System;
-using EKIFVK.ChemicalLab.Configurations;
-using EKIFVK.ChemicalLab.Models;
 using Microsoft.Extensions.Options;
+using EKIFVK.ChemicalLab.Models;
+using EKIFVK.ChemicalLab.Configurations;
 
-namespace EKIFVK.ChemicalLab.Services.Logging
-{
-    public class LoggingService : ILoggingService
-    {
+namespace EKIFVK.ChemicalLab.Services.Tracking {
+    public class TrackService : ITrackService {
         private readonly ChemicalLabContext _database;
         private readonly IOptions<ModifyLoggingConfiguration> _configuration;
 
-        public LoggingService(ChemicalLabContext database, IOptions<ModifyLoggingConfiguration> configuration)
-        {
+        public TrackService(ChemicalLabContext database, IOptions<ModifyLoggingConfiguration> configuration) {
             _database = database;
             _configuration = configuration;
         }
 
-        public void Write(LoggingRecord record)
-        {
+        public void Write(TrackRecord record) {
             string loggingType;
-            switch (record.Type)
-            {
-                case LoggingType.InfoLevel1:
+            switch (record.Type) {
+                case TrackType.InfoL1:
                     loggingType = _configuration.Value.InfoLevel1;
                     break;
-                case LoggingType.InfoLevel2:
+                case TrackType.InfoL2:
                     loggingType = _configuration.Value.InfoLevel2;
                     break;
-                case LoggingType.InfoLevel3:
+                case TrackType.InfoL3:
                     loggingType = _configuration.Value.InfoLevel3;
                     break;
-                case LoggingType.ErrorLevel1:
+                case TrackType.ErrorL1:
                     loggingType = _configuration.Value.ErrorLevel1;
                     break;
-                case LoggingType.ErrorLevel2:
+                case TrackType.ErrorL2:
                     loggingType = _configuration.Value.ErrorLevel2;
                     break;
-                case LoggingType.ErrorLevel3:
+                case TrackType.ErrorL3:
                     loggingType = _configuration.Value.ErrorLevel3;
                     break;
                 default:
                     return;
             }
-            _database.ModifyHistories.Add(new ModifyHistory
-            {
+            var history = new TrackHistory {
                 ModifierNavigation = record.Source,
-                ModifyType= loggingType,
+                HistoryType = loggingType,
                 ModifyTime = DateTime.Now,
-                TableName = record.Table,
-                RecordId = record.Record,
                 Data = record.Data
-            });
+            };
+            if (!string.IsNullOrEmpty(record.Column) && !string.IsNullOrEmpty(record.Table) && record.Record != 0) {
+                history.TargetTable = record.Table;
+                history.TargetColumn = record.Column;
+                history.TargetRecord = record.Record;
+            }
+            _database.TrackHistories.Add(history);
             _database.SaveChanges();
         }
     }

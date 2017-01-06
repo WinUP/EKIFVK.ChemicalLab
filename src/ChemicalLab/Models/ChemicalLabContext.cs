@@ -1,30 +1,25 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public class ChemicalLabContext : DbContext
-    {
-        public ChemicalLabContext(DbContextOptions options) : base(options) { }
+namespace EKIFVK.ChemicalLab.Models {
+    public class ChemicalLabContext : DbContext {
+        public ChemicalLabContext(DbContextOptions options) : base(options) {
+        }
 
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<Place>(entity =>
-            {
+        protected override void OnModelCreating(ModelBuilder modelBuilder) {
+            modelBuilder.Entity<Place>(entity => {
                 entity.ToTable("Place");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
             });
-            modelBuilder.Entity<Room>(entity =>
-            {
+            modelBuilder.Entity<Room>(entity => {
                 entity.ToTable("Room");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
             });
-            modelBuilder.Entity<Location>(entity =>
-            {
+            modelBuilder.Entity<Location>(entity => {
                 entity.ToTable("Location");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.HasOne(d => d.PlaceNavigation)
@@ -38,21 +33,18 @@ namespace EKIFVK.ChemicalLab.Models
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_Location_Room");
             });
-            modelBuilder.Entity<Permission>(entity =>
-            {
+            modelBuilder.Entity<Permission>(entity => {
                 entity.ToTable("Permission");
                 entity.HasKey(e => e.Name);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
             });
-            modelBuilder.Entity<PermissionGroup>(entity =>
-            {
+            modelBuilder.Entity<PermissionGroup>(entity => {
                 entity.ToTable("PermissionGroup");
                 entity.HasKey(e => e.Name);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(64);
                 entity.Property(e => e.Permission).HasMaxLength(21485);
             });
-            modelBuilder.Entity<UserGroup>(entity =>
-            {
+            modelBuilder.Entity<UserGroup>(entity => {
                 entity.ToTable("UserGroup");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
@@ -61,8 +53,7 @@ namespace EKIFVK.ChemicalLab.Models
                 entity.Property(e => e.Permission).HasMaxLength(21485);
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
             });
-            modelBuilder.Entity<User>(entity =>
-            {
+            modelBuilder.Entity<User>(entity => {
                 entity.ToTable("User");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(128);
@@ -78,49 +69,44 @@ namespace EKIFVK.ChemicalLab.Models
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_User_UserGroup");
             });
-            modelBuilder.Entity<ModifyHistory>(entity =>
-            {
+            modelBuilder.Entity<TrackHistory>(entity => {
                 entity.ToTable("ModifyHistory");
                 entity.Property(e => e.Id).HasColumnName("ID");
-                entity.Property(e => e.RecordId).HasColumnName("RecordID");
-                entity.Property(e => e.ModifyType).HasMaxLength(32);
+                entity.Property(e => e.TargetColumn).HasMaxLength(32);
+                entity.Property(e => e.TargetTable).HasMaxLength(32);
+                entity.Property(e => e.HistoryType).IsRequired().HasMaxLength(8);
                 entity.HasOne(d => d.ModifierNavigation)
                     .WithMany(p => p.ModifyHistories)
                     .HasForeignKey(d => d.Modifier)
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_Modify_User");
             });
-            modelBuilder.Entity<ItemDetailType>(entity =>
-            {
+            modelBuilder.Entity<ItemDetailType>(entity => {
                 entity.ToTable("ItemDetailType");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
                 entity.Property(e => e.RequireCas).HasColumnName("RequireCAS");
             });
-            modelBuilder.Entity<Unit>(entity =>
-            {
+            modelBuilder.Entity<Unit>(entity => {
                 entity.ToTable("Unit");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
             });
-            modelBuilder.Entity<PhysicalState>(entity =>
-            {
+            modelBuilder.Entity<PhysicalState>(entity => {
                 entity.ToTable("PhysicalState");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
             });
-            modelBuilder.Entity<ContainterType>(entity =>
-            {
+            modelBuilder.Entity<ContainterType>(entity => {
                 entity.ToTable("ContainerType");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
             });
-            modelBuilder.Entity<ItemDetail>(entity =>
-            {
+            modelBuilder.Entity<ItemDetail>(entity => {
                 entity.ToTable("ItemDetail");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Prefix).HasMaxLength(256);
@@ -151,15 +137,13 @@ namespace EKIFVK.ChemicalLab.Models
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_ItemDetail_ItemDetailType");
             });
-            modelBuilder.Entity<Experiment>(entity =>
-            {
+            modelBuilder.Entity<Experiment>(entity => {
                 entity.ToTable("Experiment");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
                 entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
             });
-            modelBuilder.Entity<Vendor>(entity =>
-            {
+            modelBuilder.Entity<Vendor>(entity => {
                 entity.ToTable("Vendor");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
@@ -167,8 +151,7 @@ namespace EKIFVK.ChemicalLab.Models
                 entity.Property(e => e.Number).IsRequired().HasMaxLength(45);
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
             });
-            modelBuilder.Entity<Item>(entity =>
-            {
+            modelBuilder.Entity<Item>(entity => {
                 entity.ToTable("Item");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
@@ -198,8 +181,7 @@ namespace EKIFVK.ChemicalLab.Models
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("Fk_Item_Experiment");
             });
-            modelBuilder.Entity<ItemUsage>(entity =>
-            {
+            modelBuilder.Entity<ItemUsage>(entity => {
                 entity.ToTable("ItemUsage");
                 entity.Property(e => e.Id).HasColumnName("ID");
             });
@@ -212,7 +194,7 @@ namespace EKIFVK.ChemicalLab.Models
         public DbSet<PermissionGroup> PermissionGroups { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserGroup> UserGroups { get; set; }
-        public DbSet<ModifyHistory> ModifyHistories { get; set; }
+        public DbSet<TrackHistory> TrackHistories { get; set; }
         public DbSet<ItemDetailType> ItemDetailTypes { get; set; }
         public DbSet<Unit> Units { get; set; }
         public DbSet<PhysicalState> PhysicalStates { get; set; }

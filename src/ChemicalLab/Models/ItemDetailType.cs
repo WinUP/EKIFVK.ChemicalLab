@@ -1,11 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public partial class ItemDetailType: BasicRecordableSimpleTable
-    {
-        public ItemDetailType()
-        {
+namespace EKIFVK.ChemicalLab.Models {
+    public partial class ItemDetailType : BasicRecordableSimpleTable {
+        public ItemDetailType() {
             ItemDetails = new HashSet<ItemDetail>();
         }
 

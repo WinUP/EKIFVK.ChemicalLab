@@ -1,11 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace EKIFVK.ChemicalLab.Models
-{
-    public partial class Vendor : BasicDisableSimpleTable
-    {
-        public Vendor()
-        {
+namespace EKIFVK.ChemicalLab.Models {
+    public partial class Vendor : BasicDisableSimpleTable {
+        public Vendor() {
             Items = new HashSet<Item>();
         }
 
