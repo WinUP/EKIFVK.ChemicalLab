@@ -5,9 +5,10 @@ import { HttpModule } from '@angular/http'
 import { FormsModule }   from '@angular/forms'
 import { MaterialModule } from '@angular/material'
 import { ApplicationComponent } from './application.component'
+import 'hammerjs'
 
 @NgModule({
-    imports: [],
+    imports: [MaterialModule.forRoot()],
     providers: [],
     declarations: [ApplicationComponent],
     bootstrap: [ApplicationComponent]
