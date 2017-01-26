@@ -12,7 +12,8 @@
     "types": [
       "hammerjs",
       "crypto-js",
-      "lodash"
+      "lodash",
+      "node"
     ]
   }
 }

@@ -14,11 +14,12 @@
             '@angular/http': 'npm:@angular/http/bundles/http.umd.js',
             '@angular/router': 'npm:@angular/router/bundles/router.umd.js',
             '@angular/forms': 'npm:@angular/forms/bundles/forms.umd.js',
-            '@angular/material': 'npm:@angular/material/material.umd.js',
+            '@angular/material': 'npm:@angular/material/bundles/material.umd.js',
 
             'moment': 'npm:moment/moment.js',
             'rxjs': 'npm:rxjs',
-            'crypto-js': 'npm:crypto-js'
+            'crypto-js': 'npm:crypto-js',
+            'hammerjs': 'npm:hammerjs/hammer.js'
         },
         packages: {
             app: {
