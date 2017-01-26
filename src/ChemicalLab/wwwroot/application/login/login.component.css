@@ -1,0 +1,97 @@
+md-card {
+    position: relative;
+    margin: auto;
+    height: 410px;
+    top: 40px;
+    width: 400px;
+    z-index: 200;
+    background: #FFF;
+    padding: 0px;
+}
+
+md-card-title {
+    background: #009688;
+    position: relative;
+    height: 100px;
+    width: 100%;
+    margin-bottom: 30px;
+}
+
+#cont-lock {
+    width: 100%;
+    height: 65px;
+    position: relative;
+}
+
+.lock {
+    text-align: center;
+    color: white;
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin: 0;
+    top: 0;
+    bottom: 0;
+    line-height: 65px;
+    font-size: 28px;
+}
+
+#bottom-head {
+    position: relative;
+    background: #00796b;
+    height: 35px;
+}
+
+#bottom-head::after {
+    content: '';
+    width: 0px;
+    height: 0px;
+    display: block;
+    position: absolute;
+    margin: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-bottom: 7px solid white;
+    border-right: 7px solid rgba(0,0,0,0);
+    border-left: 7px solid rgba(0,0,0,0);
+    border-top: 7px solid rgba(0,0,0,0);
+}
+
+md-card h1 {
+    margin-left: 20px;
+    margin-top: 0;
+    font-size: 24px;
+    font-weight: 300;
+    color: #cfd8dc;
+    line-height: 35px;
+}
+
+md-card-content {
+    text-align: center;
+}
+
+md-input-container {
+    width: 300px;
+}
+
+button {
+    width: 300px;
+    color: #009688;
+    margin: 20px auto;
+}
+
+md-card-footer {
+    background: #00695c;
+    height: 50px;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.footer-text {
+    color: #cfd8dc;
+    text-align: center;
+    font-size:14px;
+    margin: 0px;
+}
