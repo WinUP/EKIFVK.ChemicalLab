@@ -33,17 +33,6 @@ namespace EKIFVK.ChemicalLab.Models {
                     .OnDelete(DeleteBehavior.Restrict)
                     .HasConstraintName("FK_Location_Room");
             });
-            modelBuilder.Entity<Permission>(entity => {
-                entity.ToTable("Permission");
-                entity.HasKey(e => e.Name);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
-            });
-            modelBuilder.Entity<PermissionGroup>(entity => {
-                entity.ToTable("PermissionGroup");
-                entity.HasKey(e => e.Name);
-                entity.Property(e => e.Name).IsRequired().HasMaxLength(64);
-                entity.Property(e => e.Permission).HasMaxLength(21485);
-            });
             modelBuilder.Entity<UserGroup>(entity => {
                 entity.ToTable("UserGroup");
                 entity.Property(e => e.Id).HasColumnName("ID");
@@ -61,7 +50,6 @@ namespace EKIFVK.ChemicalLab.Models {
                 entity.Property(e => e.DisplayName).HasMaxLength(128);
                 entity.Property(e => e.AccessToken).HasMaxLength(36);
                 entity.Property(e => e.LastAccessAddress).HasMaxLength(38);
-                entity.Property(e => e.AllowMultiAddressLogin).HasDefaultValue(false);
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
                 entity.HasOne(d => d.UserGroupNavigation)
                     .WithMany(p => p.Users)
@@ -190,8 +178,6 @@ namespace EKIFVK.ChemicalLab.Models {
         public DbSet<Place> Places { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Location> Locations { get; set; }
-        public DbSet<Permission> Permissions { get; set; }
-        public DbSet<PermissionGroup> PermissionGroups { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserGroup> UserGroups { get; set; }
         public DbSet<TrackHistory> TrackHistories { get; set; }

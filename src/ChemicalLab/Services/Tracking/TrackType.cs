@@ -6,31 +6,31 @@
         /// <summary>
         /// Database changed
         /// </summary>
-        InfoL1,
+        I1D,
 
         /// <summary>
         /// Permission request passed
         /// </summary>
-        InfoL2,
+        I2P,
 
         /// <summary>
         /// Information returned
         /// </summary>
-        InfoL3,
+        I3I,
 
         /// <summary>
         /// Database changing failed
         /// </summary>
-        ErrorL1,
+        E1D,
 
         /// <summary>
         /// Permission request failed
         /// </summary>
-        ErrorL2,
+        E2P,
 
         /// <summary>
         /// System error
         /// </summary>
-        ErrorL3
+        E3S
     }
 }

@@ -6,9 +6,9 @@ using EKIFVK.ChemicalLab.Configurations;
 namespace EKIFVK.ChemicalLab.Services.Tracking {
     public class TrackService : ITrackService {
         private readonly ChemicalLabContext _database;
-        private readonly IOptions<ModifyLoggingConfiguration> _configuration;
+        private readonly IOptions<TrackModuleConfiguration> _configuration;
 
-        public TrackService(ChemicalLabContext database, IOptions<ModifyLoggingConfiguration> configuration) {
+        public TrackService(ChemicalLabContext database, IOptions<TrackModuleConfiguration> configuration) {
             _database = database;
             _configuration = configuration;
         }
@@ -16,22 +16,22 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
         public void Write(TrackRecord record) {
             string loggingType;
             switch (record.Type) {
-                case TrackType.InfoL1:
+                case TrackType.I1D:
                     loggingType = _configuration.Value.InfoLevel1;
                     break;
-                case TrackType.InfoL2:
+                case TrackType.I2P:
                     loggingType = _configuration.Value.InfoLevel2;
                     break;
-                case TrackType.InfoL3:
+                case TrackType.I3I:
                     loggingType = _configuration.Value.InfoLevel3;
                     break;
-                case TrackType.ErrorL1:
+                case TrackType.E1D:
                     loggingType = _configuration.Value.ErrorLevel1;
                     break;
-                case TrackType.ErrorL2:
+                case TrackType.E2P:
                     loggingType = _configuration.Value.ErrorLevel2;
                     break;
-                case TrackType.ErrorL3:
+                case TrackType.E3S:
                     loggingType = _configuration.Value.ErrorLevel3;
                     break;
                 default:

@@ -12,7 +12,6 @@ namespace EKIFVK.ChemicalLab.Models {
         public int UserGroup { get; set; }
         public string AccessToken { get; set; }
         public DateTime? LastAccessTime { get; set; }
-        public bool AllowMultiAddressLogin { get; set; }
         public string LastAccessAddress { get; set; }
 
         public virtual UserGroup UserGroupNavigation { get; set; }

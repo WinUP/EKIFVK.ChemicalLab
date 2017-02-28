@@ -9,7 +9,6 @@ namespace EKIFVK.ChemicalLab.Models {
         public int? TargetRecord { get; set; }
         public string TargetColumn { get; set; }
         public DateTime ModifyTime { get; set; }
-        public string TableName { get; set; }
         public string Data { get; set; }
 
         public virtual User ModifierNavigation { get; set; }

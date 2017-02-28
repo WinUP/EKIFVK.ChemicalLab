@@ -29,22 +29,27 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
         /// Type of this record
         /// </summary>
         public TrackType Type { get; }
+
         /// <summary>
         /// Modifier of this record
         /// </summary>
         public User Source { get; }
+
         /// <summary>
         /// Table which this record referenced
         /// </summary>
         public string Table { get; set; }
+
         /// <summary>
         /// Column which this record referenced
         /// </summary>
         public string Column { get; set; }
+
         /// <summary>
         /// Database record ID which this record rederenced
         /// </summary>
         public int Record { get; set; }
+
         /// <summary>
         /// String type data of this record
         /// </summary>
@@ -56,8 +61,7 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
         /// <param name="key">Key</param>
         /// <param name="value">Value</param>
         /// <returns></returns>
-        public TrackRecord Add(string key, JToken value)
-        {
+        public TrackRecord Add(string key, JToken value) {
             _record.Add(key, value);
             return this;
         }
@@ -67,8 +71,7 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public TrackRecord AddNote(JToken value)
-        {
+        public TrackRecord Note(JToken value) {
             _record.Add("d", value);
             return this;
         }
@@ -78,8 +81,7 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
         /// </summary>
         /// <param name="value">Previous value of database record</param>
         /// <returns></returns>
-        public TrackRecord AddPreviousData(JToken value)
-        {
+        public TrackRecord PreviousData(JToken value) {
             _record.Add("p", value);
             return this;
         }
@@ -89,8 +91,7 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
         /// </summary>
         /// <param name="value">New value of database record</param>
         /// <returns></returns>
-        public TrackRecord AddNewData(JToken value)
-        {
+        public TrackRecord NewData(JToken value) {
             _record.Add("n", value);
             return this;
         }

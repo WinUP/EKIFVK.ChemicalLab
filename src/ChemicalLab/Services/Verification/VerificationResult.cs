@@ -1,12 +1,12 @@
-﻿namespace EKIFVK.ChemicalLab.Services.Authentication {
+﻿namespace EKIFVK.ChemicalLab.Services.Verification {
     /// <summary>
     /// User authentication verify result
     /// </summary>
-    public enum VerifyResult {
+    public enum VerificationResult {
         /// <summary>
         /// Passed
         /// </summary>
-        Passed,
+        Pass,
 
         /// <summary>
         /// Token is expired
@@ -14,23 +14,13 @@
         Expired,
 
         /// <summary>
-        /// Token's format is invalid
-        /// </summary>
-        InvalidFormat,
-
-        /// <summary>
-        /// Cannot find permission group
-        /// </summary>
-        NonexistentGroup,
-
-        /// <summary>
         /// Cannot find token
         /// </summary>
-        NonexistentToken,
+        Invalid,
 
         /// <summary>
         /// Denied
         /// </summary>
-        Denied
+        Reject
     }
 }

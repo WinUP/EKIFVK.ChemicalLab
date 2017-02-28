@@ -1,5 +1,5 @@
 ﻿namespace EKIFVK.ChemicalLab.Configurations {
-    public class ModifyLoggingConfiguration {
+    public class TrackModuleConfiguration {
         public string InfoLevel1 { get; set; }
         public string InfoLevel2 { get; set; }
         public string InfoLevel3 { get; set; }

@@ -7,7 +7,7 @@ using MySQL.Data.EntityFrameworkCore.Extensions;
 using EKIFVK.ChemicalLab.Models;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Services.Tracking;
-using EKIFVK.ChemicalLab.Services.Authentication;
+using EKIFVK.ChemicalLab.Services.Verification;
 
 namespace EKIFVK.ChemicalLab {
     public class Startup {
@@ -26,12 +26,12 @@ namespace EKIFVK.ChemicalLab {
             services.AddMvc();
             services.AddOptions();
             services.Configure<AuthenticationConfiguration>(Configuration.GetSection("AuthenticationConfiguration"));
-            services.Configure<ModifyLoggingConfiguration>(Configuration.GetSection("ModifyLoggingConfiguration"));
+            services.Configure<TrackModuleConfiguration>(Configuration.GetSection("ModifyLoggingConfiguration"));
             services.Configure<UserModuleConfiguration>(Configuration.GetSection("UserModuleConfiguration"));
             services.AddDbContext<ChemicalLabContext>(
                 options => options.UseMySQL(Configuration.GetConnectionString("Database")));
             services.AddSingleton<ITrackService, TrackService>();
-            services.AddScoped<IAuthentication, AuthenticationService>();
+            services.AddScoped<IVerificationService, VerificationService>();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
