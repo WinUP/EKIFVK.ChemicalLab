@@ -1,25 +1,27 @@
 ﻿using System;
+using System.Collections;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using EKIFVK.ChemicalLab.Controllers;
-using EKIFVK.ChemicalLab.Services.Verification;
 
 namespace EKIFVK.ChemicalLab.Attributes {
     [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-    public class PermissionCheckAttribute : ActionFilterAttribute {
+    public class VerifyAttribute : ActionFilterAttribute {
         private readonly string _permission;
 
-        public PermissionCheckAttribute(string permission) {
+        public VerifyAttribute(string permission) {
             _permission = permission;
         }
 
         public override void OnActionExecuting(ActionExecutingContext context) {
             if (!(context.Controller is VerifiableController)) {
-                throw new NotSupportedException("PermissionCheckAttribute only supports Controller that inherts VerifiableController");
+                throw new NotSupportedException("VerifyAttribute only supports Controller that inherts VerifiableController");
             }
             var controller = (VerifiableController) context.Controller;
-            var result = controller.Verifier.Check(controller.CurrentUser, _permission, controller.CurrentAddress);
-            if (result != VerificationResult.Pass) {
-                context.Result = controller.RejectedResponse(result, _permission);
+            if (!controller.Verifier.Check(controller.CurrentUser, _permission, out var result, controller.CurrentAddress)) {
+                context.HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+                context.Result =
+                    controller.Json(new Hashtable {{"data", ""}, {"message", controller.Verifier.ToString(result)}});
             }
             base.OnActionExecuting(context);
         }

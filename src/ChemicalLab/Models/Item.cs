@@ -1,7 +1,7 @@
 ﻿using System;
 
 namespace EKIFVK.ChemicalLab.Models {
-    public partial class Item : BasicDisableTable {
+    public partial class Item {
         public int Id { get; set; }
         public int Detail { get; set; }
         public DateTime RegisterTime { get; set; }
@@ -12,6 +12,8 @@ namespace EKIFVK.ChemicalLab.Models {
         public int Experiment { get; set; }
         public int Vendor { get; set; }
         public double Used { get; set; }
+        public bool Disabled { get; set; }
+        public DateTime LastUpdate { get; set; }
 
         public virtual ItemDetail DetailNavigation { get; set; }
         public virtual Location LocationNavigation { get; set; }

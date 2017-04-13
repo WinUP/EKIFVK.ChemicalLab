@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Linq;
 using System.Net;
 using EKIFVK.ChemicalLab.Models;
@@ -10,7 +11,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace EKIFVK.ChemicalLab.Controllers {
     /// <summary>
-    /// Controller with support of EKIFVK regular json response
+    /// Controller with support of verification
     /// </summary>
     public abstract class VerifiableController : Controller {
         /// <summary>
@@ -24,9 +25,9 @@ namespace EKIFVK.ChemicalLab.Controllers {
         public IVerificationService Verifier { get; }
 
         /// <summary>
-        /// Logging service
+        /// Tracking service
         /// </summary>
-        public readonly ITrackService Tracker;
+        public readonly ITrackerService Tracker;
 
         /// <summary>
         /// User in this session (might be null)
@@ -38,19 +39,32 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// </summary>
         public IPAddress CurrentAddress { get; private set; }
 
-        protected VerifiableController(ChemicalLabContext database, IVerificationService verifier, ITrackService tracker) {
+        protected VerifiableController(ChemicalLabContext database, IVerificationService verifier, ITrackerService tracker) {
             Verifier = verifier;
             Tracker = tracker;
             Database = database;
         }
 
         public override void OnActionExecuting(ActionExecutingContext context) {
-            var token = Verifier.ExtractToken(Request.Headers);
+            var token = Verifier.FindToken(Request.Headers);
             if (token != null) {
                 CurrentUser = Database.Users.FirstOrDefault(e => e.AccessToken == token);
             }
             CurrentAddress = context.HttpContext.Connection.RemoteIpAddress;
             base.OnActionExecuting(context);
+        }
+
+        /// <summary>
+        /// Check if a name is valid for database
+        /// </summary>
+        /// <param name="name">Name</param>
+        /// <returns></returns>
+        public bool IsNameValid(string name) {
+            return !string.IsNullOrEmpty(name) &&
+                   name.IndexOf("?", StringComparison.Ordinal) > -1 &&
+                   name.IndexOf("/", StringComparison.Ordinal) > -1 &&
+                   name.IndexOf("\\", StringComparison.Ordinal) > -1 &&
+                   name.IndexOf(".", StringComparison.Ordinal) == 0;
         }
 
         /// <summary>
@@ -60,31 +74,28 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <param name="message">Message which should be returned (default null)</param>
         /// <param name="data">Data which should be returned (default null)</param>
         /// <returns>Json response</returns>
-        public JsonResult FormattedResponse(int statusCode = StatusCodes.Status200OK, string message = null,
-            object data = null) {
+        public JsonResult Json(int statusCode = StatusCodes.Status200OK, string message = null, object data = null) {
             Response.StatusCode = statusCode;
             return Json(new Hashtable {{"data", data ?? ""}, {"message", message ?? "SUCCESS"}});
         }
 
         /// <summary>
-        /// Get a formatted json response with permission rejected message and write this message to Tracker
+        /// Get a formatted json response
         /// </summary>
-        /// <param name="verificationResult">Verification result</param>
-        /// <param name="permission">Requested permission</param>
-        /// <returns>Json response</returns>
-        public JsonResult RejectedResponse(VerificationResult verificationResult, string permission) {
-            WritePermissionRejected(verificationResult, permission);
-            Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Json(new Hashtable { { "data", "" }, { "message", Verifier.ToString(verificationResult) } });
+        /// <param name="ex">Server error</param>
+        /// <returns></returns>
+        public JsonResult Json(Exception ex) {
+            return Json(StatusCodes.Status500InternalServerError, ex.Message, "SERVER_ERROR");
         }
 
         /// <summary>
-        /// Write permission rejected message to Tracker
+        /// Get a formatted json response
         /// </summary>
-        /// <param name="permission">Requested permission</param>
-        /// <param name="verificationResult">Verification result</param>
-        public void WritePermissionRejected(VerificationResult verificationResult, string permission) {
-            Tracker.Write(new TrackRecord(TrackType.E2P, CurrentUser, "", 0, "").Note($"Permission rejected in [{permission}] because {Verifier.ToString(verificationResult)}"));
+        /// <param name="verificationResult">Permission verification result</param>
+        /// <param name="data">Data which should be returned (default null)</param>
+        /// <returns>Json response</returns>
+        public JsonResult Json(VerificationResult verificationResult, object data = null) {
+            return Json(StatusCodes.Status403Forbidden, Verifier.ToString(verificationResult), data);
         }
     }
 }

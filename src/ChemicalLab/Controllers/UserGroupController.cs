@@ -7,10 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Linq;
 using EKIFVK.ChemicalLab.Models;
-using EKIFVK.ChemicalLab.Filters;
 using EKIFVK.ChemicalLab.Configurations;
+using EKIFVK.ChemicalLab.SearchFilters;
 using EKIFVK.ChemicalLab.Services.Verification;
 using EKIFVK.ChemicalLab.Services.Tracking;
 
@@ -18,167 +17,145 @@ namespace EKIFVK.ChemicalLab.Controllers {
     /// <summary>
     /// API for UserGroup Management
     /// </summary>
-    [Route("api/v1/usergroup")]
-    public class UserGroupController : VerifiableController
-    {
-        private readonly IOptions<UserModuleConfiguration> _conf;
+    [Route("api/1.1/usergroup")]
+    public class UserGroupController : VerifiableController {
+        private readonly IOptions<UserModule> Configuration;
 
-        public UserGroupController(ChemicalLabContext database, IVerificationService verifier, ITrackService tracker,
-            IOptions<UserModuleConfiguration> configuration)
+        public UserGroupController(ChemicalLabContext database, IVerificationService verifier, ITrackerService tracker, IOptions<UserModule> configuration)
             : base(database, verifier, tracker) {
-            _conf = configuration;
-        }
-
-        private UserGroup FindGroup(string name) {
-            return Database.UserGroups.FirstOrDefault(e => e.Name == name);
-        }
-
-        private TrackRecord T(TrackType trackType, int record, string column)
-        {
-            return new TrackRecord(trackType, CurrentUser, _conf.Value.UserGroupTable, record, column);
+            Configuration = configuration;
         }
 
         [HttpGet("{name}")]
         public JsonResult GetInfo(string name) {
-            var group = FindGroup(name);
+            var group = Verifier.FindGroup(name);
             if (group == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyGroup);
-            return FormattedResponse(data: new Hashtable {
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidGroupName);
+            return Json(data: new Hashtable {
                 {"name", group.Name},
                 {"note", group.Note},
                 {"permission", group.Permission},
+                {"disabled", group.Disabled},
                 {"user", Database.Users.Count(e => e.UserGroup == group.Id)}
             });
         }
 
         [HttpPost("{name}")]
-        [PermissionCheck("GROUP:ADD")]
+        [Verify("UG:ADD")]
         public JsonResult Add(string name, [FromBody] Hashtable parameter) {
-            if (string.IsNullOrEmpty(name) ||
-                name.IndexOf("/", StringComparison.Ordinal) > -1 ||
-                name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
-                name.IndexOf("?", StringComparison.Ordinal) > -1 ||
-                name.IndexOf(".", StringComparison.Ordinal) == 0)
-                return FormattedResponse(StatusCodes.Status400BadRequest, _conf.Value.InvalidFormat);
-            var group = FindGroup(name);
+            if (!IsNameValid(name))
+                return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidGroupName);
+            var group = Verifier.FindGroup(name);
             if (group != null)
-                return FormattedResponse(StatusCodes.Status409Conflict, _conf.Value.GroupAlreadyExist);
+                return Json(StatusCodes.Status409Conflict, Configuration.Value.AlreadyExisted);
             group = new UserGroup {
                 Name = name,
                 Note = parameter["note"].ToString(),
                 Permission = parameter["permission"].ToString(),
-                LastUpdate = DateTime.Now
+                LastUpdate = DateTime.Now,
+                Disabled = false
             };
             Database.UserGroups.Add(group);
-            Tracker.Write(T(TrackType.I3I, group.Id, "").Note(_conf.Value.AddGroup));
-            return FormattedResponse(data: group.Id);
+            Database.SaveChanges();
+            Tracker.Get(Operation.AddNewUserGroup).By(CurrentUser).At(group.Id).From("").To("").Save();
+            return Json(data: group.Id);
+        }
+
+        [HttpDelete("{name}")]
+        [Verify("UG:DELETE")]
+        public JsonResult Delete(string name) {
+            if (Verifier.FindGroup(CurrentUser).Name == name)
+                return Json(StatusCodes.Status403Forbidden, Configuration.Value.CannotRemoveSelf);
+            var target = Verifier.FindGroup(name);
+            if (target == null)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidGroupName);
+            var targetId = target.Id;
+            if (Database.Users.Count(e => e.UserGroup == targetId) > 0)
+                return Json(StatusCodes.Status403Forbidden, Configuration.Value.OperationDenied);
+            try {
+                Tracker.Get(Operation.DeleteUserGroup).By(CurrentUser).At(target.Id).From("").Do(() => {
+                    Database.UserGroups.Remove(target);
+                    Database.SaveChanges();
+                }).To("").Save();
+            } catch (Exception ex) {
+                return Json(ex);
+            }
+            return Json();
         }
 
         [HttpPatch("{name}")]
-        [PermissionCheck("")]
-        public JsonResult ChangeGroupInformation(string name, [FromBody] Hashtable parameter) {
-            var target = FindGroup(name);
+        [Verify("UG:MANAGE")]
+        public JsonResult ChangeInformation(string name, [FromBody] Hashtable param) {
+            var target = Verifier.FindGroup(name);
             if (target == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyGroup);
-            var finalData = new JObject();
-            if (parameter.ContainsKey("name")) {
-                if (!Verifier.Check(CurrentUser, "GROUP:MANAGE", out var verifyResult)) {
-                    finalData.Add("name", false);
-                    WritePermissionRejected(verifyResult, "GROUP:MANAGE");
-                }
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidGroupName);
+            var data = new Hashtable();
+            if (param.ContainsKey("name")) {
+                data["name"] = true;
+                var newName = param["name"].ToString();
+                if (Database.UserGroups.Count(e => e.Name == newName) > 0)
+                    data["name"] = Configuration.Value.AlreadyExisted;
                 else {
-                    var newName = parameter["name"].ToString();
-                    if (FindGroup(newName) != null)
-                        return FormattedResponse(StatusCodes.Status409Conflict, _conf.Value.GroupAlreadyExist, finalData);
-                    var previous = target.Name;
-                    target.Name = newName;
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserGroupTableName)
-                        .Note(_conf.Value.ChangeGroupName)
-                        .PreviousData(previous)
-                        .NewData(target.Name));
-                    finalData.Add("name", true);
+                    Tracker.Get(Operation.ChangeUserGroupName).By(CurrentUser).At(target.Id).From(target.Name).Do(() => {
+                        target.Name = newName;
+                    }).To(target.Name).Save();
                 }
             }
-            if (parameter.ContainsKey("note")) {
-                if (!Verifier.Check(CurrentUser, "GROUP:MANAGE", out var verifyResult)) {
-                    finalData.Add("note", false);
-                    WritePermissionRejected(verifyResult, "GROUP:MANAGE");
-                }
+            if (param.ContainsKey("note")) {
+                data["note"] = true;
+                Tracker.Get(Operation.ChangeUserGroupNote).By(CurrentUser).At(target.Id).From(target.Note).Do(() => {
+                    target.Note = param["note"].ToString();
+                }).To(target.Note).Save();
+            }
+            if (param.ContainsKey("permission")) {
+                data["permission"] = true;
+                if (!Verifier.Check(CurrentUser, "UG:PERM", CurrentAddress))
+                    data["permission"] = Configuration.Value.OperationDenied;
                 else {
-                    var previous = target.Note;
-                    target.Note = parameter["note"].ToString();
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserGroupTableNote)
-                        .Note(_conf.Value.ChangeGroupNote)
-                        .PreviousData(previous)
-                        .NewData(target.Note));
-                    finalData.Add("note", true);
+                    Tracker.Get(Operation.ChangeUserGroupPermission).By(CurrentUser).At(target.Id).From(target.Permission).Do(() => {
+                        target.Permission = param["permission"].ToString();
+                    }).To(target.Permission).Save();
                 }
             }
-            if (parameter.ContainsKey("permission")) {
-                if (!Verifier.Check(CurrentUser, "GROUP:PERM", out var verifyResult)) {
-                    finalData.Add("note", false);
-                    WritePermissionRejected(verifyResult, "GROUP:PERM");
-                }
+            if (param.ContainsKey("disabled")) {
+                data["disabled"] = true;
+                if (Verifier.FindGroup(CurrentUser) == target)
+                    data["disabled"] = Configuration.Value.CannotChangeSelf;
+                else if (!Verifier.Check(CurrentUser, "UG:DISABLE", CurrentAddress))
+                    data["disabled"] = Configuration.Value.OperationDenied;
                 else {
-                    var previous = target.Permission;
-                    target.Permission = parameter["permission"].ToString();
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserGroupTablePermission)
-                        .Note(_conf.Value.ChangeGroupPermission)
-                        .PreviousData(previous)
-                        .NewData(target.Permission));
-                    finalData.Add("permission", true);
+                    Tracker.Get(Operation.ChangeUserGroupDisabled).By(CurrentUser).At(target.Id).From(target.Disabled.ToString()).Do(() => {
+                        target.Disabled = (bool)param["disabled"];
+                    }).To(target.Disabled.ToString()).Save();
                 }
             }
-            if (parameter.ContainsKey("disabled")) {
-                if (CurrentUser.UserGroup == target.Id) {
-                    Tracker.Write(T(TrackType.E1D, CurrentUser.Id, "").Note(_conf.Value.DisableSelf));
-                    finalData.Add("disable", false);
-                }
-                else if (!Verifier.Check(CurrentUser, "GROUP:STATUS", out var verifyResult)) {
-                    finalData.Add("disable", false);
-                    WritePermissionRejected(verifyResult, "GROUP:STATUS");
-                }
-                else {
-                    var previous = target.Disabled;
-                    target.Disabled = (bool)parameter["disabled"];
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserGroupTableDisabled)
-                        .Note(_conf.Value.ChangeGroupDisabled)
-                        .PreviousData(previous)
-                        .NewData(target.Permission));
-                    finalData.Add("disabled", true);
-                }
-            }
-            return FormattedResponse(data: finalData);
+            target.LastUpdate = DateTime.Now;
+            Database.SaveChanges();
+            return Json(data: data);
         }
-        
+
         [HttpGet(".count")]
         public JsonResult GetGroupCount(GroupSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return FormattedResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Count());
+            return Json(data: Database.UserGroups.FromSql(query, param.ToArray()).Count());
         }
 
         [HttpGet(".list")]
-        [PermissionCheck("GROUP:MANAGE")]
+        [Verify("GROUP:MANAGE")]
         public JsonResult GetGroupList(GroupSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return FormattedResponse(data: Database.UserGroups.FromSql(query, param.ToArray()).Select(e => new Hashtable {
-                {"name", e.Name},
-                {"note", e.Note},
-                {"permission", e.Permission},
-                {"user", Database.Users.Count(u => u.UserGroup == e.Id)}
-            }).ToArray());
+            return Json(data: Database.UserGroups.FromSql(query, param.ToArray())
+                .Select(e => new {
+                    e.Name,
+                    e.Note,
+                    e.Permission,
+                    User = Database.Users.Count(u => u.UserGroup == e.Id)
+                }).ToArray());
         }
 
         private static string QueryGenerator(GroupSearchFilter filter, ICollection<object> param) {
-            //? MySql connector for .net core still does not support Take() and Skip() in this version
-            //? which means we can only form SQL query manually
-            //? Also, LIMIT in mysql has significant performnce issue so we will not use LIMIT
             var condition = new List<string>();
             var paramCount = -1;
             if (!string.IsNullOrEmpty(filter.Name)) {

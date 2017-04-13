@@ -7,10 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json.Linq;
 using EKIFVK.ChemicalLab.Models;
-using EKIFVK.ChemicalLab.Filters;
 using EKIFVK.ChemicalLab.Configurations;
+using EKIFVK.ChemicalLab.SearchFilters;
 using EKIFVK.ChemicalLab.Services.Verification;
 using EKIFVK.ChemicalLab.Services.Tracking;
 
@@ -20,232 +19,200 @@ namespace EKIFVK.ChemicalLab.Controllers {
     /// </summary>
     [Route("api/1.1/user")]
     public class UserController : VerifiableController {
-        private readonly IOptions<UserModuleConfiguration> _conf;
+        private readonly IOptions<UserModule> Configuration;
 
-        public UserController(ChemicalLabContext database, IVerificationService verifier, ITrackService tracker,
-            IOptions<UserModuleConfiguration> configuration)
+        public UserController(ChemicalLabContext database, IVerificationService verifier, ITrackerService tracker, IOptions<UserModule> configuration)
             : base(database, verifier, tracker) {
-            _conf = configuration;
-        }
-
-        private TrackRecord T(TrackType trackType, int record, string column) {
-            return new TrackRecord(trackType, CurrentUser, _conf.Value.UserTable, record, column);
+            Configuration = configuration;
         }
 
         [HttpGet("{name}")]
-        [PermissionCheck("USER:GET")]
+        [Verify("US:GET")]
         public JsonResult GetInfo(string name) {
-            var target = Verifier.FindUser(name);
-            if (target == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyUser);
-            var response = FormattedResponse(data: new Hashtable {
-                {"name", target.Name},
-                {"display", target.DisplayName},
-                {"usergroup", Verifier.FindGroup(target).Name},
-                {"time", target.LastAccessTime},
-                {"address", target.LastAccessAddress},
-                {"disabled", target.Disabled},
-                {"update", target.LastUpdate}
-            });
-            Tracker.Write(T(TrackType.I3I, target.Id, "ALL").Note(_conf.Value.GetUserInfo));
-            return response;
+            var targetUser = Verifier.FindUser(name);
+            if (targetUser == null)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidUserName);
+            var data = new Hashtable {
+                {"name", targetUser.Name},
+                {"displayName", targetUser.DisplayName},
+                {"userGroup", Verifier.FindGroup(targetUser).Name}
+            };
+            if (CurrentUser != null && CurrentUser.Name == name || Verifier.Check(CurrentUser, "US:MANAGE", CurrentAddress)) {
+                data["activeTime"] = targetUser.LastAccessTime?.ToString("yyyy-MM-dd HH:mm:ss");
+                data["accessAddress"] = targetUser.LastAccessAddress;
+                data["disabled"] = targetUser.Disabled;
+                data["update"] = targetUser.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+            return Json(data: data);
         }
 
         [HttpPost("{name}")]
-        [PermissionCheck("USER:ADD")]
+        [Verify("US:ADD")]
         public JsonResult Add(string name, [FromBody] Hashtable parameter) {
-            if (string.IsNullOrEmpty(name) ||
-                name.IndexOf("/", StringComparison.Ordinal) > -1 ||
-                name.IndexOf("\\", StringComparison.Ordinal) > -1 ||
-                name.IndexOf("?", StringComparison.Ordinal) > -1 ||
-                name.IndexOf(".", StringComparison.Ordinal) == 0)
-                return FormattedResponse(StatusCodes.Status400BadRequest, _conf.Value.InvalidFormat);
-            name = name.ToLower();
-            var newUser = Verifier.FindUser(name);
-            if (newUser != null) {
-                Tracker.Write(T(TrackType.E1D, newUser.Id, "").Note(_conf.Value.UserAlreadyExist));
-                return FormattedResponse(StatusCodes.Status409Conflict, _conf.Value.UserAlreadyExist);
-            }
-            var groupId = int.Parse(parameter["group"].ToString());
-            var group = Database.UserGroups.FirstOrDefault(e => e.Id == groupId);
+            if (!IsNameValid(name))
+                return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidUserName);
+            var user = Verifier.FindUser(name);
+            if (user != null)
+                return Json(StatusCodes.Status409Conflict, Configuration.Value.AlreadyExisted);
+            var group = Verifier.FindGroup(parameter["userGroup"].ToString());
             if (group == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyGroup);
-            newUser = new User {
-                Name = name.ToLower(),
-                Password = _conf.Value.DefaulPasswordHash,
-                DisplayName = parameter["display"].ToString(),
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidGroupName);
+            user = new User {
+                Name = name,
+                Password = Configuration.Value.DefaulPasswordHash,
+                DisplayName = parameter["displayName"].ToString(),
                 UserGroupNavigation = group,
+                Disabled = false,
                 LastUpdate = DateTime.Now
             };
-            Database.Users.Add(newUser);
-            Tracker.Write(T(TrackType.I1D, newUser.Id, "").Note(_conf.Value.AddUser));
-            return FormattedResponse(data: newUser.Id);
+            Database.Users.Add(user);
+            Database.SaveChanges();
+            Tracker.Get(Operation.AddNewUser).By(CurrentUser).At(user.Id).From("").To("").Save();
+            return Json(data: user.Id);
         }
 
-        [HttpPut("{name}/token")]
-        public JsonResult SignIn(string name, string password) {
-            var user = Verifier.FindUser(name);
-            if (user == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyUser);
-            if (user.Password != password)
-                return FormattedResponse(StatusCodes.Status403Forbidden, _conf.Value.WrongPassword);
-            if (user.Disabled || Verifier.FindGroup(user).Disabled)
-                return FormattedResponse(StatusCodes.Status403Forbidden, _conf.Value.DisabledUser);
-            var previousToken = user.AccessToken;
-            user.AccessToken = Guid.NewGuid().ToString().ToUpper();
-            Verifier.UpdateAccessTime(user);
-            Verifier.UpdateAccessAddress(user, HttpContext.Connection.RemoteIpAddress);
-            Tracker.Write(T(TrackType.I1D, user.Id, _conf.Value.UserTableAccessToken)
-                .Note(_conf.Value.SingIn)
-                .PreviousData(previousToken)
-                .NewData(user.AccessToken));
-            return FormattedResponse(data: user.AccessToken);
-        }
-
-        [HttpDelete("{name}/token")]
-        public JsonResult SignOut(string name) {
-            if (CurrentUser == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyUser);
-            if (CurrentUser.Name != name) {
-                Tracker.Write(T(TrackType.E1D, CurrentUser.Id, "").Note(_conf.Value.SignOutOthers));
-                return FormattedResponse(StatusCodes.Status403Forbidden, _conf.Value.SignOutOthers);
+        [HttpDelete("{name}")]
+        [Verify("US:DELETE")]
+        public JsonResult Delete(string name) {
+            if (CurrentUser.Name == name)
+                return Json(StatusCodes.Status403Forbidden, Configuration.Value.CannotRemoveSelf);
+            var target = Verifier.FindUser(name);
+            if (target == null)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidUserName);
+            try {
+                var id = target.Id;
+                Tracker.Get(Operation.DeleteUser).By(CurrentUser).At(target.Id).From("").Do(() => {
+                    Database.TrackHistories.RemoveRange(Database.TrackHistories.Where(e => e.Modifier == id));
+                    Database.Items.RemoveRange(Database.Items.Where(e => e.Owner == id));
+                    Database.Users.Remove(target);
+                    Database.SaveChanges();
+                }).To("").Save();
+            } catch (Exception ex) {
+                return Json(ex);
             }
-            var previousToken = CurrentUser.AccessToken;
-            CurrentUser.AccessToken = null;
-            Verifier.UpdateAccessTime(CurrentUser);
-            Verifier.UpdateAccessAddress(CurrentUser, HttpContext.Connection.RemoteIpAddress);
-            Tracker.Write(T(TrackType.I1D, CurrentUser.Id, _conf.Value.UserTableAccessToken)
-                .Note(_conf.Value.SingOut)
-                .PreviousData(previousToken)
-                .NewData(""));
-            return FormattedResponse();
+            return Json();
         }
 
         [HttpPatch("{name}")]
-        [PermissionCheck("")]
-        public JsonResult ChangeUserInformation(string name, [FromBody] Hashtable parameter) {
+        public JsonResult ChangeInformation(string name, [FromBody] Hashtable param) {
             var target = Verifier.FindUser(name);
             if (target == null)
-                return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyUser);
-            var finalData = new JObject();
-            if (parameter.ContainsKey("password")) {
-                var previous = target.Password;
-                string note = null;
-                if (CurrentUser != target) {
-                    if (Verifier.Check(CurrentUser, "USER:MODIFY", out var verifyResult)) {
-                        note = _conf.Value.ResetPassword;
-                        target.Password = _conf.Value.DefaulPasswordHash;
-                    }
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidUserName);
+            var data = new Hashtable();
+            if (param.ContainsKey("displayName")) {
+                if (!Verifier.Check(CurrentUser, "", out var result, CurrentAddress)) {
+                    data["displayName"] = Verifier.ToString(result);
+                } else {
+                    data["displayName"] = true;
+                    if (CurrentUser != target && !Verifier.Check(CurrentUser, "US:MODIFY", CurrentAddress))
+                        data["displayName"] = Configuration.Value.OperationDenied;
                     else {
-                        finalData.Add("password", false);
-                        WritePermissionRejected(verifyResult, "USER:MODIFT");
+                        Tracker.Get(Operation.ChangeUserDisplayName).By(CurrentUser).At(target.Id).From(target.DisplayName).Do(() => {
+                            target.DisplayName = param["displayName"].ToString();
+                        }).To(target.DisplayName).Save();
                     }
                 }
-                else {
-                    note = _conf.Value.ChangePassword;
-                    target.Password = parameter["password"].ToString();
-                }
-                target.LastUpdate = DateTime.Now;
-                if (note != null) {
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserTablePassword)
-                        .Note(note)
-                        .PreviousData(previous)
-                        .NewData(target.Password));
-                    finalData.Add("password", true);
+            }
+            if (param.ContainsKey("password")) {
+                if (!Verifier.Check(CurrentUser, "", out var result, CurrentAddress)) {
+                    data["password"] = Verifier.ToString(result);
+                } else {
+                    data["password"] = true;
+                    if (CurrentUser != target) {
+                        if (Verifier.Check(CurrentUser, "US:MODIFY", CurrentAddress)) {
+                            Tracker.Get(Operation.ResetUserPassword).By(CurrentUser).At(target.Id).From(target.Password).Do(() => {
+                                target.Password = Configuration.Value.DefaulPasswordHash;
+                            }).To(target.Password).Save();
+                        }
+                        else
+                            data["password"] = Configuration.Value.OperationDenied;
+                    } else {
+                        Tracker.Get(Operation.ChangeUserPassowrd).By(CurrentUser).At(target.Id).From(target.Password).Do(() => {
+                            target.Password = param["password"].ToString();
+                        }).To(target.Password).Save();
+                    }
                 }
             }
-            if (parameter.ContainsKey("group")) {
-                if (CurrentUser == target) {
-                    Tracker.Write(T(TrackType.E1D, target.Id, _conf.Value.UserTableGroup)
-                        .Note(_conf.Value.ChangeSelfGroup));
-                    return FormattedResponse(StatusCodes.Status403Forbidden, _conf.Value.ChangeSelfGroup,
-                        finalData);
-                }
-                if (!Verifier.Check(CurrentUser, "USER:GROUP", out var verifyResult)) {
-                    finalData.Add("usergroup", false);
-                    WritePermissionRejected(verifyResult, "USER:GROUP");
-                }
-                else {
-                    var groupName = parameter["group"].ToString();
-                    var group = Database.UserGroups.FirstOrDefault(e => e.Name == groupName);
+            if (param.ContainsKey("userGroup")) {
+                data["userGroup"] = true;
+                if (CurrentUser == target)
+                    data["userGroup"] = Configuration.Value.CannotChangeSelf;
+                else if (!Verifier.Check(CurrentUser, "US:GROUP", CurrentAddress)) {
+                    data["userGroup"] = Configuration.Value.OperationDenied;
+                } else {
+                    var group = Verifier.FindGroup(param["userGroup"].ToString());
                     if (group == null)
-                        return FormattedResponse(StatusCodes.Status404NotFound, _conf.Value.EmptyGroup, finalData);
-                    var previous = Verifier.FindGroup(target).Name;
-                    target.UserGroupNavigation = group;
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserTableGroup)
-                        .Note(_conf.Value.ChangeUserGroup)
-                        .PreviousData(previous)
-                        .NewData(group.Name));
-                    finalData.Add("usergroup", true);
+                        data["userGroup"] = Configuration.Value.InvalidGroupName;
+                    else {
+                        Tracker.Get(Operation.ChangeUserGroup).By(CurrentUser).At(target.Id).From(target.UserGroupNavigation.Name).Do(() => {
+                            target.UserGroupNavigation = group;
+                        }).To(target.UserGroupNavigation.Name).Save();
+                    }
                 }
             }
-            if (parameter.ContainsKey("display")) {
-                var previous = target.DisplayName;
-                if (CurrentUser != target && !Verifier.Check(CurrentUser, "USER:MODIFY", out var verifyResult)) {
-                    finalData.Add("display", false);
-                    WritePermissionRejected(verifyResult, "USER:MODIFT");
-                }
-                else {
-                    target.DisplayName = parameter["display"].ToString();
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserTableDisplayName)
-                        .Note(_conf.Value.ChangeUserDisplayName)
-                        .PreviousData(previous)
-                        .NewData(target.DisplayName));
-                    finalData.Add("display", true);
-                }
-            }
-            if (parameter.ContainsKey("disable")) {
-                if (CurrentUser.Name == name) {
-                    Tracker.Write(T(TrackType.E1D, CurrentUser.Id, "").Note(_conf.Value.DisableSelf));
-                    finalData.Add("disable", false);
-                }
-                else if (!Verifier.Check(CurrentUser, "USER:STATUS", out var verifyResult)) {
-                    finalData.Add("disable", false);
-                    WritePermissionRejected(verifyResult, "USER:STATUS");
-                }
-                else {
-                    var previous = target.Disabled;
-                    target.Disabled = (bool) parameter["disable"];
-                    target.LastUpdate = DateTime.Now;
-                    Tracker.Write(T(TrackType.I1D, target.Id, _conf.Value.UserTableDisabled)
-                        .Note(_conf.Value.DisableUser)
-                        .PreviousData(previous)
-                        .NewData(target.Disabled));
-                    finalData.Add("disable", true);
+            if (param.ContainsKey("accessToken")) {
+                if (param["accessToken"] is bool) {
+                    if (CurrentUser.Name != name)
+                        data["accessToken"] = Configuration.Value.OperationDenied;
+                    else {
+                        CurrentUser.AccessToken = null;
+                        Verifier.UpdateAccessTime(CurrentUser, false);
+                        Verifier.UpdateAccessAddress(CurrentUser, CurrentAddress);
+                        data["accessToken"] = true;
+                    }
+                } else {
+                    if (target.Password != param["accessToken"].ToString())
+                        data["accessToken"] = Configuration.Value.IncorrectPassword;
+                    else {
+                        target.AccessToken = Guid.NewGuid().ToString().ToUpper();
+                        Verifier.UpdateAccessTime(target, false);
+                        Verifier.UpdateAccessAddress(target, CurrentAddress);
+                        data["accessToken"] = target.AccessToken;
+                    }
                 }
             }
-            return FormattedResponse(data: finalData);
+            if (param.ContainsKey("disabled")) {
+                data["disabled"] = true;
+                if (CurrentUser == target)
+                    data["disabled"] = Configuration.Value.CannotChangeSelf;
+                else if (!Verifier.Check(CurrentUser, "US:DISABLE", CurrentAddress))
+                    data["disabled"] = Configuration.Value.OperationDenied;
+                else  {
+                    Tracker.Get(Operation.ChangeUserDisabled).By(CurrentUser).At(target.Id).From(target.Disabled.ToString()).Do(() => {
+                        target.Disabled = (bool)param["disabled"];
+                    }).To(target.Disabled.ToString()).Save();
+                }
+            }
+            target.LastUpdate = DateTime.Now;
+            Database.SaveChanges();
+            return Json(data: data);
         }
 
         [HttpGet(".count")]
         public JsonResult GetUserCount(UserSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return FormattedResponse(data: Database.Users.FromSql(query, param.ToArray()).Count());
+            return Json(data: Database.Users.FromSql(query, param.ToArray()).Count());
         }
 
         [HttpGet(".list")]
-        [PermissionCheck("USER:MANAGE")]
+        [Verify("US:MANAGE")]
         public JsonResult GetUserList(UserSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return FormattedResponse(data: Database.Users.FromSql(query, param.ToArray()).Select(e => new Hashtable {
-                {"name", e.Name},
-                {"display", e.DisplayName},
-                {"usergroup", Verifier.FindGroup(e).Name},
-                {"time", e.LastAccessTime},
-                {"address", e.LastAccessAddress},
-                {"disabled", e.Disabled},
-                {"update", e.LastUpdate}
-            }).ToArray());
+            return Json(data: Database.Users.FromSql(query, param.ToArray())
+                .Select(e => new {
+                    e.Name,
+                    e.DisplayName,
+                    UserGroup = Verifier.FindGroup(e).Name,
+                    e.LastAccessTime,
+                    e.LastAccessAddress,
+                    e.Disabled,
+                    e.LastUpdate
+                }).ToArray());
         }
 
         private string QueryGenerator(UserSearchFilter filter, ICollection<object> param) {
-            //? MySql connector for .net core still does not support Take() and Skip() in this version
-            //? which means we can only form SQL query manually
-            //? Also, LIMIT in mysql has significant performnce issue so we will not use LIMIT
             var condition = new List<string>();
             var paramCount = -1;
             if (!string.IsNullOrEmpty(filter.Name)) {

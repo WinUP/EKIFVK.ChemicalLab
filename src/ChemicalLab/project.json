@@ -17,7 +17,7 @@
     "Microsoft.Extensions.Logging.Debug": "1.0.0",
     "Microsoft.Extensions.Options.ConfigurationExtensions": "1.0.0",
     "Microsoft.VisualStudio.Web.BrowserLink.Loader": "14.0.0",
-	"MySql.Data.EntityFrameworkCore": "7.0.6-IR31"
+    "MySql.Data.EntityFrameworkCore": "7.0.7-m61"
   },
 
   "tools": {

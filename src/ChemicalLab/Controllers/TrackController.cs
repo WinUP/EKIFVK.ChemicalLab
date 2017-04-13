@@ -1,67 +1,62 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using EKIFVK.ChemicalLab.Attributes;
-using EKIFVK.ChemicalLab.Configurations;
-using EKIFVK.ChemicalLab.Filters;
 using EKIFVK.ChemicalLab.Models;
+using EKIFVK.ChemicalLab.SearchFilters;
 using EKIFVK.ChemicalLab.Services.Tracking;
 using EKIFVK.ChemicalLab.Services.Verification;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace EKIFVK.ChemicalLab.Controllers {
+    /// <summary>
+    /// API for Track history
+    /// </summary>
+    [Route("api/1.1/track")]
     public class TrackController : VerifiableController {
 
-        public TrackController(ChemicalLabContext database, IVerificationService verifier, ITrackService tracker)
+        public TrackController(ChemicalLabContext database, IVerificationService verifier, ITrackerService tracker)
             : base(database, verifier, tracker) {
         }
 
         [HttpGet(".count")]
-        [PermissionCheck("TRACK:GET")]
+        [Verify("TK:GET")]
         public JsonResult GetTrackCount(TrackSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return FormattedResponse(data: Database.TrackHistories.FromSql(query, param.ToArray()).Count());
+            return Json(data: Database.TrackHistories.FromSql(query, param.ToArray()).Count());
         }
 
         [HttpGet(".list")]
-        [PermissionCheck("TRACK:GET")]
+        [Verify("TK:GET")]
         public JsonResult GetTrackList(TrackSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
-            return
-                FormattedResponse(
-                    data: Database.TrackHistories.FromSql(query, param.ToArray()).Select(e => new Hashtable {
-                        {"id", e.Id},
-                        {"modifier", Database.Users.FirstOrDefault(u => u.Id == e.Modifier).Name},
-                        {"type", e.HistoryType},
-                        {"target", e.TargetTable},
-                        {"record", e.TargetRecord},
-                        {"column", e.TargetColumn},
-                        {"time", e.ModifyTime},
-                        {"data", e.Data}
-                    }).ToArray());
+            return Json(data: Database.TrackHistories.FromSql(query, param.ToArray())
+                .Select(e => new {
+                    e.Id,
+                    Modifier = Database.Users.FirstOrDefault(u => u.Id == e.Modifier).Name,
+                    e.HistoryType,
+                    e.TargetRecord,
+                    e.ModifyTime,
+                    e.PreviousData,
+                    e.NewData
+                }).ToArray());
         }
 
         [HttpDelete]
-        [PermissionCheck("TRACK:DELETE")]
-        public JsonResult RemoveRange(int startId, int endId) {
-            var list = Database.TrackHistories.Where(e => e.Id >= startId && e.Id <= endId);
-            foreach (var e in list) {
-                Database.TrackHistories.Remove(e);
+        [Verify("TK:DELETE")]
+        public JsonResult RemoveRange(string ids) {
+            var idList = ids.Split(';').Select(int.Parse).ToArray();
+            foreach (var e in idList) {
+                var target = Database.TrackHistories.FirstOrDefault(t => t.Id == e);
+                if (target != null) Database.TrackHistories.Remove(target);
             }
             Database.SaveChanges();
-            return FormattedResponse();
+            return Json();
         }
 
         private static string QueryGenerator(TrackSearchFilter filter, ICollection<object> param) {
-            //? MySql connector for .net core still does not support Take() and Skip() in this version
-            //? which means we can only form SQL query manually
-            //? Also, LIMIT in mysql has significant performnce issue so we will not use LIMIT
             var condition = new List<string>();
             var paramCount = -1;
             if (!string.IsNullOrEmpty(filter.HistoryType)) {

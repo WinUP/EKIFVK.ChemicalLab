@@ -4,23 +4,20 @@
     /// </summary>
     public enum VerificationResult {
         /// <summary>
-        /// Passed
+        /// Authorized
         /// </summary>
-        Pass,
-
+        Authorized,
         /// <summary>
-        /// Token is expired
+        /// Token is overdue
         /// </summary>
-        Expired,
-
+        Overdue,
         /// <summary>
         /// Cannot find token
         /// </summary>
         Invalid,
-
         /// <summary>
         /// Denied
         /// </summary>
-        Reject
+        Denied
     }
 }

@@ -13,7 +13,7 @@ namespace EKIFVK.ChemicalLab.Services.Verification {
         /// </summary>
         /// <param name="header">Http header</param>
         /// <returns>Token in this http header</returns>
-        string ExtractToken(IHeaderDictionary header);
+        string FindToken(IHeaderDictionary header);
 
         /// <summary>
         /// Find User by User's name (might be null)
@@ -21,6 +21,13 @@ namespace EKIFVK.ChemicalLab.Services.Verification {
         /// <param name="name">User's name</param>
         /// <returns></returns>
         User FindUser(string name);
+
+        /// <summary>
+        /// Find UserGroup by name
+        /// </summary>
+        /// <param name="name">UserGroup's name</param>
+        /// <returns></returns>
+        UserGroup FindGroup(string name);
 
         /// <summary>
         /// Get User's UserGroup (might be null is user is null)
@@ -35,8 +42,8 @@ namespace EKIFVK.ChemicalLab.Services.Verification {
         /// <param name="token">User's access token</param>
         /// <param name="permission">Permission group which should be checked</param>
         /// <param name="address">User's address</param>
-        /// <returns>Verification result</returns>
-        VerificationResult Check(string token, string permission, IPAddress address = null);
+        /// <returns>Indicate if result is Pass</returns>
+        bool Check(string token, string permission, IPAddress address = null);
 
         /// <summary>
         /// Verify user's permission
@@ -44,54 +51,58 @@ namespace EKIFVK.ChemicalLab.Services.Verification {
         /// <param name="user">User's instance</param>
         /// <param name="permission">Permission's name which should be checked</param>
         /// <param name="address">User's address</param>
-        /// <returns>Verification result</returns>
-        VerificationResult Check(User user, string permission, IPAddress address = null);
+        /// <returns>Indicate if result is Pass</returns>
+        bool Check(User user, string permission, IPAddress address = null);
 
         /// <summary>
         /// Verify user's permission
         /// </summary>
         /// <param name="token">User's access token</param>
         /// <param name="permission">Permission's name which should be checked</param>
-        /// <param name="verificationResult">Verification result</param>
+        /// <param name="result">Verification result</param>
         /// <param name="address">User's address</param>
         /// <returns>Indicate if result is Pass</returns>
-        bool Check(string token, string permission, out VerificationResult verificationResult, IPAddress address = null);
+        bool Check(string token, string permission, out VerificationResult result, IPAddress address = null);
 
         /// <summary>
         /// Verify user's permission
         /// </summary>
         /// <param name="user">User's instance</param>
         /// <param name="permission">Permission's name which should be checked</param>
-        /// <param name="verificationResult">Verification result</param>
+        /// <param name="result">Verification result</param>
         /// <param name="address">User's address</param>
         /// <returns>Indicate if result is Pass</returns>
-        bool Check(User user, string permission, out VerificationResult verificationResult, IPAddress address = null);
+        bool Check(User user, string permission, out VerificationResult result, IPAddress address = null);
 
         /// <summary>
         /// Update user's last acsess time to now
         /// </summary>
         /// <param name="token">User's token</param>
-        void UpdateAccessTime(string token);
+        /// <param name="submit">Shoudl submit this update to database automatically</param>
+        void UpdateAccessTime(string token, bool submit = true);
 
         /// <summary>
         /// Update user's last acsess time to now
         /// </summary>
         /// <param name="user">User's instance</param>
-        void UpdateAccessTime(User user);
+        /// <param name="submit">Shoudl submit this update to database automatically</param>
+        void UpdateAccessTime(User user, bool submit = true);
 
         /// <summary>
         /// Update user's last acsess addrress
         /// </summary>
         /// <param name="token">User's token</param>
         /// <param name="address">User's address</param>
-        void UpdateAccessAddress(string token, IPAddress address);
+        /// <param name="submit">Shoudl submit this update to database automatically</param>
+        void UpdateAccessAddress(string token, IPAddress address, bool submit = true);
 
         /// <summary>
         /// Update user's last acsess addrress
         /// </summary>
         /// <param name="user">User's instance</param>
         /// <param name="address">User's address</param>
-        void UpdateAccessAddress(User user, IPAddress address);
+        /// <param name="submit">Shoudl submit this update to database automatically</param>
+        void UpdateAccessAddress(User user, IPAddress address, bool submit = true);
 
         /// <summary>
         /// Convert verify result to string

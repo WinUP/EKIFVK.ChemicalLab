@@ -22,6 +22,7 @@ namespace EKIFVK.ChemicalLab.Models {
             modelBuilder.Entity<Location>(entity => {
                 entity.ToTable("Location");
                 entity.Property(e => e.Id).HasColumnName("ID");
+                entity.HasIndex(e => new {e.Place, e.Room}).HasName("UN_Place_Room").IsUnique();
                 entity.HasOne(d => d.PlaceNavigation)
                     .WithMany(p => p.Locations)
                     .HasForeignKey(d => d.Place)
@@ -58,11 +59,9 @@ namespace EKIFVK.ChemicalLab.Models {
                     .HasConstraintName("FK_User_UserGroup");
             });
             modelBuilder.Entity<TrackHistory>(entity => {
-                entity.ToTable("ModifyHistory");
+                entity.ToTable("TrackHistory");
                 entity.Property(e => e.Id).HasColumnName("ID");
-                entity.Property(e => e.TargetColumn).HasMaxLength(32);
-                entity.Property(e => e.TargetTable).HasMaxLength(32);
-                entity.Property(e => e.HistoryType).IsRequired().HasMaxLength(8);
+                entity.Property(e => e.TargetRecord).HasMaxLength(32);
                 entity.HasOne(d => d.ModifierNavigation)
                     .WithMany(p => p.ModifyHistories)
                     .HasForeignKey(d => d.Modifier)
@@ -135,8 +134,8 @@ namespace EKIFVK.ChemicalLab.Models {
                 entity.ToTable("Vendor");
                 entity.Property(e => e.Id).HasColumnName("ID");
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(45);
-                entity.HasIndex(e => e.Name).HasName("UN_Name").IsUnique();
                 entity.Property(e => e.Number).IsRequired().HasMaxLength(45);
+                entity.HasIndex(e => e.Number).HasName("UN_Number").IsUnique();
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
             });
             modelBuilder.Entity<Item>(entity => {

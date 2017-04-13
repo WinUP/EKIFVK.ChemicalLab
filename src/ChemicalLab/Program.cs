@@ -10,7 +10,6 @@ namespace EKIFVK.ChemicalLab {
                 .UseIISIntegration()
                 .UseStartup<Startup>()
                 .Build();
-
             host.Run();
         }
     }
