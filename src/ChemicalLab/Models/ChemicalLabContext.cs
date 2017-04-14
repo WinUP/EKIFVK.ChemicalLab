@@ -101,6 +101,7 @@ namespace EKIFVK.ChemicalLab.Models {
                 entity.Property(e => e.Cas).HasColumnName("CAS");
                 entity.Property(e => e.Cas).HasMaxLength(192);
                 entity.HasIndex(e => e.Cas).HasName("UN_CAS").IsUnique();
+                entity.Property(e => e.Msds).IsRequired().HasMaxLength(36);
                 entity.Property(e => e.Note).HasMaxLength(256);
                 entity.Property(e => e.Disabled).HasDefaultValue(false);
                 entity.HasOne(d => d.UnitNavigation)

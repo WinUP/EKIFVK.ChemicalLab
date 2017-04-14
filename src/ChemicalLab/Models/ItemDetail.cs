@@ -16,6 +16,7 @@ namespace EKIFVK.ChemicalLab.Models {
         public int ContainerType { get; set; }
         public int PhysicalState { get; set; }
         public int DetailType { get; set; }
+        public string Msds { get; set; }
         public DateTime MsdsDate { get; set; }
         public int Required { get; set; }
         public string Note { get; set; }

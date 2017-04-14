@@ -7,11 +7,9 @@ using EKIFVK.ChemicalLab.Services.Tracking;
 using EKIFVK.ChemicalLab.Services.Verification;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 
 namespace EKIFVK.ChemicalLab.Controllers {
-    /// <summary>
-    /// API for Track history
-    /// </summary>
     [Route("api/1.1/track")]
     public class TrackController : VerifiableController {
 
@@ -59,13 +57,13 @@ namespace EKIFVK.ChemicalLab.Controllers {
         private static string QueryGenerator(TrackSearchFilter filter, ICollection<object> param) {
             var condition = new List<string>();
             var paramCount = -1;
-            if (!string.IsNullOrEmpty(filter.HistoryType)) {
-                condition.Add("HistoryType = '@p" + ++paramCount + "'");
-                param.Add(filter.HistoryType);
+            if (filter.HistoryType != null) {
+                condition.Add("HistoryType IN (@p" + ++paramCount + ")");
+                param.Add(filter.HistoryType.Select(e => e.ToString()).Join(","));
             }
-            if (!string.IsNullOrEmpty(filter.TargetTable)) {
-                condition.Add("TargetTable = '@p" + ++paramCount + "'");
-                param.Add(filter.TargetTable);
+            if (filter.Modifier.HasValue) {
+                condition.Add("Modifier = @p" + ++paramCount);
+                param.Add(filter.Modifier.Value);
             }
             if (!string.IsNullOrEmpty(filter.StartTime)) {
                 condition.Add("ModifyTime >= '@p" + ++paramCount + "'");

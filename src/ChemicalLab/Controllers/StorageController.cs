@@ -12,9 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace EKIFVK.ChemicalLab.Controllers {
-    /// <summary>
-    /// API for Storage management
-    /// </summary>
     [Route("api/1.1/storage")]
     public class StorageController : VerifiableController {
         private readonly IOptions<PlaceModule> Configuration;
@@ -28,7 +25,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
         [Verify("SR:ADD")]
         public JsonResult AddRoom([FromBody] Hashtable parameter) {
             var name = parameter["name"].ToString();
-            if (string.IsNullOrEmpty(name) || !IsNameValid(name))
+            if (!IsNameValid(name))
                 return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidRoom);
             var room = Database.Rooms.FirstOrDefault(e => e.Name == name);
             if (room != null)
@@ -47,7 +44,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
         [Verify("SR:ADD")]
         public JsonResult AddPlace([FromBody] Hashtable parameter) {
             var name = parameter["name"].ToString();
-            if (string.IsNullOrEmpty(name) || !IsNameValid(name))
+            if (!IsNameValid(name))
                 return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidPlace);
             var place = Database.Places.FirstOrDefault(e => e.Name == name);
             if (place != null)
@@ -68,11 +65,11 @@ namespace EKIFVK.ChemicalLab.Controllers {
             var roomId = (int) parameter["room"];
             var room = Database.Rooms.FirstOrDefault(e => e.Id == roomId);
             if (room == null)
-                return Json(StatusCodes.Status409Conflict, Configuration.Value.InvalidRoom);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidRoom);
             var placeId = (int) parameter["place"];
             var place = Database.Places.FirstOrDefault(e => e.Id == placeId);
             if (place == null)
-                return Json(StatusCodes.Status409Conflict, Configuration.Value.InvalidPlace);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidPlace);
             var location = new Location {
                 RoomNavigation = room,
                 PlaceNavigation = place,
@@ -89,9 +86,9 @@ namespace EKIFVK.ChemicalLab.Controllers {
         public JsonResult DeleteRoom(int id) {
             var target = Database.Rooms.FirstOrDefault(e => e.Id == id);
             if (target == null)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidRoom);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidRoom);
             if (Database.Locations.Count(e => e.Room == id) > 0)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.OperationDenied);
+                return Json(StatusCodes.Status403Forbidden, Configuration.Value.OperationDenied);
             try {
                 Tracker.Get(Operation.DeleteRoom).By(CurrentUser).At(target.Id).From("").Do(() => {
                     Database.Rooms.Remove(target);
@@ -107,9 +104,9 @@ namespace EKIFVK.ChemicalLab.Controllers {
         public JsonResult DeletePlace(int id) {
             var target = Database.Places.FirstOrDefault(e => e.Id == id);
             if (target == null)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidPlace);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidPlace);
             if (Database.Locations.Count(e => e.Room == id) > 0)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.OperationDenied);
+                return Json(StatusCodes.Status403Forbidden, Configuration.Value.OperationDenied);
             try {
                 Tracker.Get(Operation.DeletePlace).By(CurrentUser).At(target.Id).From("").Do(() => {
                     Database.Places.Remove(target);
@@ -125,9 +122,9 @@ namespace EKIFVK.ChemicalLab.Controllers {
         public JsonResult DeleteLocation(int id)  {
             var target = Database.Locations.FirstOrDefault(e => e.Id == id);
             if (target == null)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidLocation);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidLocation);
             if (Database.Items.Count(e => e.Location == id) > 0)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.OperationDenied);
+                return Json(StatusCodes.Status403Forbidden, Configuration.Value.OperationDenied);
             try {
                 Tracker.Get(Operation.DeleteLocation).By(CurrentUser).At(target.Id).From("").Do(() => {
                     Database.Locations.Remove(target);
@@ -190,7 +187,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 else
                     Tracker.Get(Operation.ChangeLocationRoom).By(CurrentUser).At(target.Id).From(target.Room.ToString()).Do(() => {
                         target.RoomNavigation = room;
-                    }).To(target.Room.ToString()).Save(false);
+                    }).To(room.Id.ToString()).Save(false);
             }
             if (param.ContainsKey("place")) {
                 data["place"] = true;
@@ -201,7 +198,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 else
                     Tracker.Get(Operation.ChangeLocationPlace).By(CurrentUser).At(target.Id).From(target.Place.ToString()).Do(() => {
                         target.PlaceNavigation = place;
-                    }).To(target.Place.ToString()).Save(false);
+                    }).To(place.Id.ToString()).Save(false);
             }
             target.LastUpdate = DateTime.Now;
             Database.SaveChanges();
@@ -209,14 +206,24 @@ namespace EKIFVK.ChemicalLab.Controllers {
         }
 
         [HttpGet]
+        [Verify("")]
         public JsonResult GetList() {
             return Json(data: new Hashtable {
-                {"room", Database.Rooms.Select(e => new {e.Id, e.Name}).ToArray()},
-                {"place", Database.Places.Select(e => new {e.Id, e.Name}).ToArray()},
+                {"room", Database.Rooms.Select(e => new {
+                    e.Id,
+                    e.Name,
+                    Update = e.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss")
+                }).ToArray()},
+                {"place", Database.Places.Select(e => new {
+                    e.Id,
+                    e.Name,
+                    Update = e.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss")
+                }).ToArray()},
                 {"location", Database.Locations.Include(e => e.Items).Select(e => new {
                     e.Id,
                     e.Place,
                     e.Room,
+                    Update = e.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss"),
                     Items = e.Items.Count
                 }).ToArray()}
             });

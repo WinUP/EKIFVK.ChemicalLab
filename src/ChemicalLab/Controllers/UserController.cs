@@ -14,9 +14,6 @@ using EKIFVK.ChemicalLab.Services.Verification;
 using EKIFVK.ChemicalLab.Services.Tracking;
 
 namespace EKIFVK.ChemicalLab.Controllers {
-    /// <summary>
-    /// API for User Management
-    /// </summary>
     [Route("api/1.1/user")]
     public class UserController : VerifiableController {
         private readonly IOptions<UserModule> Configuration;
@@ -27,11 +24,11 @@ namespace EKIFVK.ChemicalLab.Controllers {
         }
 
         [HttpGet("{name}")]
-        [Verify("US:GET")]
+        [Verify("")]
         public JsonResult GetInfo(string name) {
             var targetUser = Verifier.FindUser(name);
             if (targetUser == null)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidUserName);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidUserName);
             var data = new Hashtable {
                 {"name", targetUser.Name},
                 {"displayName", targetUser.DisplayName},
@@ -78,7 +75,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 return Json(StatusCodes.Status403Forbidden, Configuration.Value.CannotRemoveSelf);
             var target = Verifier.FindUser(name);
             if (target == null)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidUserName);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidUserName);
             try {
                 var id = target.Id;
                 Tracker.Get(Operation.DeleteUser).By(CurrentUser).At(target.Id).From("").Do(() => {
@@ -143,9 +140,9 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     if (group == null)
                         data["userGroup"] = Configuration.Value.InvalidGroupName;
                     else {
-                        Tracker.Get(Operation.ChangeUserGroup).By(CurrentUser).At(target.Id).From(target.UserGroupNavigation.Name).Do(() => {
+                        Tracker.Get(Operation.ChangeUserGroup).By(CurrentUser).At(target.Id).From(target.UserGroup.ToString()).Do(() => {
                             target.UserGroupNavigation = group;
-                        }).To(target.UserGroupNavigation.Name).Save(false);
+                        }).To(group.Id.ToString()).Save(false);
                     }
                 }
             }
@@ -207,7 +204,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     e.LastAccessTime,
                     e.LastAccessAddress,
                     e.Disabled,
-                    e.LastUpdate
+                    Update = e.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss")
                 }).ToArray());
         }
 

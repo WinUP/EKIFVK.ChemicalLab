@@ -61,10 +61,10 @@ namespace EKIFVK.ChemicalLab.Controllers {
         /// <returns></returns>
         public bool IsNameValid(string name) {
             return !string.IsNullOrEmpty(name) &&
-                   name.IndexOf("?", StringComparison.Ordinal) > -1 &&
-                   name.IndexOf("/", StringComparison.Ordinal) > -1 &&
-                   name.IndexOf("\\", StringComparison.Ordinal) > -1 &&
-                   name.IndexOf(".", StringComparison.Ordinal) == 0;
+                   name.IndexOf("?", StringComparison.Ordinal) < 0 &&
+                   name.IndexOf("/", StringComparison.Ordinal) < 0 &&
+                   name.IndexOf("\\", StringComparison.Ordinal) < 0 &&
+                   name.IndexOf(".", StringComparison.Ordinal) != 0;
         }
 
         /// <summary>

@@ -14,9 +14,6 @@ using EKIFVK.ChemicalLab.Services.Verification;
 using EKIFVK.ChemicalLab.Services.Tracking;
 
 namespace EKIFVK.ChemicalLab.Controllers {
-    /// <summary>
-    /// API for UserGroup Management
-    /// </summary>
     [Route("api/1.1/usergroup")]
     public class UserGroupController : VerifiableController {
         private readonly IOptions<UserModule> Configuration;
@@ -27,6 +24,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
         }
 
         [HttpGet("{name}")]
+        [Verify("")]
         public JsonResult GetInfo(string name) {
             var group = Verifier.FindGroup(name);
             if (group == null)
@@ -42,7 +40,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
 
         [HttpPost("{name}")]
         [Verify("UG:ADD")]
-        public JsonResult Add(string name, [FromBody] Hashtable parameter) {
+        public JsonResult Add(string name, [FromBody] Hashtable param) {
             if (!IsNameValid(name))
                 return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidGroupName);
             var group = Verifier.FindGroup(name);
@@ -50,8 +48,8 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 return Json(StatusCodes.Status409Conflict, Configuration.Value.AlreadyExisted);
             group = new UserGroup {
                 Name = name,
-                Note = parameter["note"].ToString(),
-                Permission = parameter["permission"].ToString(),
+                Note = param["note"].ToString(),
+                Permission = param["permission"].ToString(),
                 LastUpdate = DateTime.Now,
                 Disabled = false
             };
@@ -68,7 +66,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 return Json(StatusCodes.Status403Forbidden, Configuration.Value.CannotRemoveSelf);
             var target = Verifier.FindGroup(name);
             if (target == null)
-                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidGroupName);
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidGroupName);
             var targetId = target.Id;
             if (Database.Users.Count(e => e.UserGroup == targetId) > 0)
                 return Json(StatusCodes.Status403Forbidden, Configuration.Value.OperationDenied);
@@ -134,6 +132,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
         }
 
         [HttpGet(".count")]
+        [Verify("")]
         public JsonResult GetGroupCount(GroupSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);
@@ -150,6 +149,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     e.Name,
                     e.Note,
                     e.Permission,
+                    Update = e.LastUpdate.ToString("yyyy-MM-dd HH:mm:ss"),
                     User = Database.Users.Count(u => u.UserGroup == e.Id)
                 }).ToArray());
         }
