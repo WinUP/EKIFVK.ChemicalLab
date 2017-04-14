@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using EKIFVK.ChemicalLab.Attributes;
 using EKIFVK.ChemicalLab.Configurations;
 using EKIFVK.ChemicalLab.Models;
@@ -10,6 +8,7 @@ using EKIFVK.ChemicalLab.Services.Tracking;
 using EKIFVK.ChemicalLab.Services.Verification;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace EKIFVK.ChemicalLab.Controllers {
@@ -25,11 +24,12 @@ namespace EKIFVK.ChemicalLab.Controllers {
             Configuration = configuration;
         }
 
-        [HttpPost("/room/{name}")]
-        [Verify("SR:ADDROOM")]
-        public JsonResult AddRoom(string name) {
-            if (!IsNameValid(name))
-                return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidRoomName);
+        [HttpPost("/room")]
+        [Verify("SR:ADD")]
+        public JsonResult AddRoom([FromBody] Hashtable parameter) {
+            var name = parameter["name"].ToString();
+            if (string.IsNullOrEmpty(name) || !IsNameValid(name))
+                return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidRoom);
             var room = Database.Rooms.FirstOrDefault(e => e.Name == name);
             if (room != null)
                 return Json(StatusCodes.Status409Conflict, Configuration.Value.AlreadyExisted);
@@ -43,11 +43,12 @@ namespace EKIFVK.ChemicalLab.Controllers {
             return Json(data: room.Id);
         }
 
-        [HttpPost("/place/{name}")]
-        [Verify("SR:ADDPLACE")]
-        public JsonResult AddPlace(string name) {
-            if (!IsNameValid(name))
-                return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidPlaceName);
+        [HttpPost("/place")]
+        [Verify("SR:ADD")]
+        public JsonResult AddPlace([FromBody] Hashtable parameter) {
+            var name = parameter["name"].ToString();
+            if (string.IsNullOrEmpty(name) || !IsNameValid(name))
+                return Json(StatusCodes.Status400BadRequest, Configuration.Value.InvalidPlace);
             var place = Database.Places.FirstOrDefault(e => e.Name == name);
             if (place != null)
                 return Json(StatusCodes.Status409Conflict, Configuration.Value.AlreadyExisted);
@@ -62,16 +63,16 @@ namespace EKIFVK.ChemicalLab.Controllers {
         }
 
         [HttpPost("/location")]
-        [Verify("SR:ADDPLACE")]
+        [Verify("SR:ADD")]
         public JsonResult AddLocation([FromBody] Hashtable parameter) {
-            var roomName = parameter["room"].ToString();
-            var room = Database.Rooms.FirstOrDefault(e => e.Name == roomName);
+            var roomId = (int) parameter["room"];
+            var room = Database.Rooms.FirstOrDefault(e => e.Id == roomId);
             if (room == null)
-                return Json(StatusCodes.Status409Conflict, Configuration.Value.InvalidRoomName);
-            var placeName = parameter["place"].ToString();
-            var place = Database.Places.FirstOrDefault(e => e.Name == placeName);
+                return Json(StatusCodes.Status409Conflict, Configuration.Value.InvalidRoom);
+            var placeId = (int) parameter["place"];
+            var place = Database.Places.FirstOrDefault(e => e.Id == placeId);
             if (place == null)
-                return Json(StatusCodes.Status409Conflict, Configuration.Value.InvalidPlaceName);
+                return Json(StatusCodes.Status409Conflict, Configuration.Value.InvalidPlace);
             var location = new Location {
                 RoomNavigation = room,
                 PlaceNavigation = place,
@@ -83,15 +84,141 @@ namespace EKIFVK.ChemicalLab.Controllers {
             return Json(data: room.Id);
         }
 
+        [HttpDelete("/room/{id}")]
+        [Verify("SR:DELETE")]
+        public JsonResult DeleteRoom(int id) {
+            var target = Database.Rooms.FirstOrDefault(e => e.Id == id);
+            if (target == null)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidRoom);
+            if (Database.Locations.Count(e => e.Room == id) > 0)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.OperationDenied);
+            try {
+                Tracker.Get(Operation.DeleteRoom).By(CurrentUser).At(target.Id).From("").Do(() => {
+                    Database.Rooms.Remove(target);
+                }).To("").Save();
+            } catch (Exception ex) {
+                return Json(ex);
+            }
+            return Json();
+        }
 
+        [HttpDelete("/place/{id}")]
+        [Verify("SR:DELETE")]
+        public JsonResult DeletePlace(int id) {
+            var target = Database.Places.FirstOrDefault(e => e.Id == id);
+            if (target == null)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidPlace);
+            if (Database.Locations.Count(e => e.Room == id) > 0)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.OperationDenied);
+            try {
+                Tracker.Get(Operation.DeletePlace).By(CurrentUser).At(target.Id).From("").Do(() => {
+                    Database.Places.Remove(target);
+                }).To("").Save();
+            } catch (Exception ex) {
+                return Json(ex);
+            }
+            return Json();
+        }
+
+        [HttpDelete("/location/{id}")]
+        [Verify("SR:DELETE")]
+        public JsonResult DeleteLocation(int id)  {
+            var target = Database.Locations.FirstOrDefault(e => e.Id == id);
+            if (target == null)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.InvalidLocation);
+            if (Database.Items.Count(e => e.Location == id) > 0)
+                return Json(StatusCodes.Status401Unauthorized, Configuration.Value.OperationDenied);
+            try {
+                Tracker.Get(Operation.DeleteLocation).By(CurrentUser).At(target.Id).From("").Do(() => {
+                    Database.Locations.Remove(target);
+                }).To("").Save();
+            } catch (Exception ex) {
+                return Json(ex);
+            }
+            return Json();
+        }
+
+        [HttpPatch("/room/{id}")]
+        [Verify("SR:MANAGE")]
+        public JsonResult ChangeRoomInformation(int id, [FromBody] Hashtable param) {
+            var target = Database.Rooms.FirstOrDefault(e => e.Id == id);
+            if (target == null)
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidRoom);
+            var data = new Hashtable();
+            if (param.ContainsKey("name")) {
+                data["name"] = true;
+                Tracker.Get(Operation.ChangeRoomName).By(CurrentUser).At(target.Id).From(target.Name).Do(() => {
+                    target.Name = param["name"].ToString();
+                }).To(target.Name).Save(false);
+            }
+            target.LastUpdate = DateTime.Now;
+            Database.SaveChanges();
+            return Json(data: data);
+        }
+
+        [HttpPatch("/place/{id}")]
+        [Verify("SR:MANAGE")]
+        public JsonResult ChangePlaceInformation(int id, [FromBody] Hashtable param) {
+            var target = Database.Places.FirstOrDefault(e => e.Id == id);
+            if (target == null)
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidPlace);
+            var data = new Hashtable();
+            if (param.ContainsKey("name")) {
+                data["name"] = true;
+                Tracker.Get(Operation.ChangePlaceName).By(CurrentUser).At(target.Id).From(target.Name).Do(() => {
+                    target.Name = param["name"].ToString();
+                }).To(target.Name).Save(false);
+            }
+            target.LastUpdate = DateTime.Now;
+            Database.SaveChanges();
+            return Json(data: data);
+        }
+
+        [HttpPatch("/location/{id}")]
+        [Verify("SR:MANAGE")]
+        public JsonResult ChangeLocationInformation(int id, [FromBody] Hashtable param) {
+            var target = Database.Locations.FirstOrDefault(e => e.Id == id);
+            if (target == null)
+                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidLocation);
+            var data = new Hashtable();
+            if (param.ContainsKey("room")) {
+                data["room"] = true;
+                var roomId = (int) param["room"];
+                var room = Database.Rooms.FirstOrDefault(e => e.Id == roomId);
+                if (room == null)
+                    data["room"] = Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidRoom);
+                else
+                    Tracker.Get(Operation.ChangeLocationRoom).By(CurrentUser).At(target.Id).From(target.Room.ToString()).Do(() => {
+                        target.RoomNavigation = room;
+                    }).To(target.Room.ToString()).Save(false);
+            }
+            if (param.ContainsKey("place")) {
+                data["place"] = true;
+                var placeId = (int) param["place"];
+                var place = Database.Places.FirstOrDefault(e => e.Id == placeId);
+                if (place == null)
+                    data["place"] = Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidPlace);
+                else
+                    Tracker.Get(Operation.ChangeLocationPlace).By(CurrentUser).At(target.Id).From(target.Place.ToString()).Do(() => {
+                        target.PlaceNavigation = place;
+                    }).To(target.Place.ToString()).Save(false);
+            }
+            target.LastUpdate = DateTime.Now;
+            Database.SaveChanges();
+            return Json(data: data);
+        }
 
         [HttpGet]
-        [Verify("US:MANAGE")]
         public JsonResult GetList() {
             return Json(data: new Hashtable {
                 {"room", Database.Rooms.Select(e => new {e.Id, e.Name}).ToArray()},
                 {"place", Database.Places.Select(e => new {e.Id, e.Name}).ToArray()},
-                {"location", Database.Locations.Select(e => new {e.Id, e.Place, e.Room}).ToArray()}
+                {"location", Database.Locations.Include(e => e.Items).Select(e => new {
+                    e.Id,
+                    e.Place,
+                    e.Room,
+                    Items = e.Items.Count
+                }).ToArray()}
             });
         }
     }

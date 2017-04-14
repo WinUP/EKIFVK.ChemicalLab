@@ -18,6 +18,13 @@
         ChangeUserGroupDisabled = 105,
         AddNewRoom = 200,
         AddNewPlace = 201,
-        AddNewLocation = 202
+        AddNewLocation = 202,
+        DeleteRoom = 203,
+        DeletePlace = 204,
+        DeleteLocation = 205,
+        ChangeRoomName = 206,
+        ChangePlaceName = 207,
+        ChangeLocationRoom = 208,
+        ChangeLocationPlace = 209
     }
 }

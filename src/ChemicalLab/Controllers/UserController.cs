@@ -85,7 +85,6 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     Database.TrackHistories.RemoveRange(Database.TrackHistories.Where(e => e.Modifier == id));
                     Database.Items.RemoveRange(Database.Items.Where(e => e.Owner == id));
                     Database.Users.Remove(target);
-                    Database.SaveChanges();
                 }).To("").Save();
             } catch (Exception ex) {
                 return Json(ex);
@@ -109,7 +108,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     else {
                         Tracker.Get(Operation.ChangeUserDisplayName).By(CurrentUser).At(target.Id).From(target.DisplayName).Do(() => {
                             target.DisplayName = param["displayName"].ToString();
-                        }).To(target.DisplayName).Save();
+                        }).To(target.DisplayName).Save(false);
                     }
                 }
             }
@@ -122,14 +121,14 @@ namespace EKIFVK.ChemicalLab.Controllers {
                         if (Verifier.Check(CurrentUser, "US:MODIFY", CurrentAddress)) {
                             Tracker.Get(Operation.ResetUserPassword).By(CurrentUser).At(target.Id).From(target.Password).Do(() => {
                                 target.Password = Configuration.Value.DefaulPasswordHash;
-                            }).To(target.Password).Save();
+                            }).To(target.Password).Save(false);
                         }
                         else
                             data["password"] = Configuration.Value.OperationDenied;
                     } else {
                         Tracker.Get(Operation.ChangeUserPassowrd).By(CurrentUser).At(target.Id).From(target.Password).Do(() => {
                             target.Password = param["password"].ToString();
-                        }).To(target.Password).Save();
+                        }).To(target.Password).Save(false);
                     }
                 }
             }
@@ -146,7 +145,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     else {
                         Tracker.Get(Operation.ChangeUserGroup).By(CurrentUser).At(target.Id).From(target.UserGroupNavigation.Name).Do(() => {
                             target.UserGroupNavigation = group;
-                        }).To(target.UserGroupNavigation.Name).Save();
+                        }).To(target.UserGroupNavigation.Name).Save(false);
                     }
                 }
             }
@@ -180,7 +179,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 else  {
                     Tracker.Get(Operation.ChangeUserDisabled).By(CurrentUser).At(target.Id).From(target.Disabled.ToString()).Do(() => {
                         target.Disabled = (bool)param["disabled"];
-                    }).To(target.Disabled.ToString()).Save();
+                    }).To(target.Disabled.ToString()).Save(false);
                 }
             }
             target.LastUpdate = DateTime.Now;

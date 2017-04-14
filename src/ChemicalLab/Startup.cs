@@ -28,6 +28,7 @@ namespace EKIFVK.ChemicalLab {
             services.AddOptions();
             services.Configure<AuthenticationModule>(Configuration.GetSection("AuthenticationConfiguration"));
             services.Configure<UserModule>(Configuration.GetSection("UserModuleConfiguration"));
+            services.Configure<PlaceModule>(Configuration.GetSection("PlaceModuleConfiguration"));
             services.AddDbContext<ChemicalLabContext>(
                 options => options.UseMySQL(Configuration.GetConnectionString("Database")));
             services.AddSingleton<ITrackerService, TrackerService>();

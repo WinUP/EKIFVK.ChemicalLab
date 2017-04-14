@@ -75,7 +75,6 @@ namespace EKIFVK.ChemicalLab.Controllers {
             try {
                 Tracker.Get(Operation.DeleteUserGroup).By(CurrentUser).At(target.Id).From("").Do(() => {
                     Database.UserGroups.Remove(target);
-                    Database.SaveChanges();
                 }).To("").Save();
             } catch (Exception ex) {
                 return Json(ex);
@@ -98,14 +97,14 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 else {
                     Tracker.Get(Operation.ChangeUserGroupName).By(CurrentUser).At(target.Id).From(target.Name).Do(() => {
                         target.Name = newName;
-                    }).To(target.Name).Save();
+                    }).To(target.Name).Save(false);
                 }
             }
             if (param.ContainsKey("note")) {
                 data["note"] = true;
                 Tracker.Get(Operation.ChangeUserGroupNote).By(CurrentUser).At(target.Id).From(target.Note).Do(() => {
                     target.Note = param["note"].ToString();
-                }).To(target.Note).Save();
+                }).To(target.Note).Save(false);
             }
             if (param.ContainsKey("permission")) {
                 data["permission"] = true;
@@ -114,7 +113,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 else {
                     Tracker.Get(Operation.ChangeUserGroupPermission).By(CurrentUser).At(target.Id).From(target.Permission).Do(() => {
                         target.Permission = param["permission"].ToString();
-                    }).To(target.Permission).Save();
+                    }).To(target.Permission).Save(false);
                 }
             }
             if (param.ContainsKey("disabled")) {
@@ -126,7 +125,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 else {
                     Tracker.Get(Operation.ChangeUserGroupDisabled).By(CurrentUser).At(target.Id).From(target.Disabled.ToString()).Do(() => {
                         target.Disabled = (bool)param["disabled"];
-                    }).To(target.Disabled.ToString()).Save();
+                    }).To(target.Disabled.ToString()).Save(false);
                 }
             }
             target.LastUpdate = DateTime.Now;

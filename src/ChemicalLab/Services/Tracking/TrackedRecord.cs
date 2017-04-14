@@ -46,8 +46,8 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
             return this;
         }
 
-        public void Save() {
-            _tracker.Save(this);
+        public void Save(bool submit = true) {
+            _tracker.Save(this, submit);
         }
     }
 }

@@ -12,7 +12,7 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
             return new TrackedRecord(operation, this);
         }
 
-        public void Save(TrackedRecord record)
+        public void Save(TrackedRecord record, bool submit = true)
         {
             var history = new TrackHistory
             {
@@ -24,7 +24,7 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
                 TargetRecord = record.Target
             };
             _database.TrackHistories.Add(history);
-            _database.SaveChanges();
+            if(submit) _database.SaveChanges();
         }
     }
 }

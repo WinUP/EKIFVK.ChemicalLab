@@ -15,6 +15,7 @@
         /// All changes for database will be saved
         /// </summary>
         /// <param name="record">Tracking record</param>
-        void Save(TrackedRecord record);
+        /// <param name="submit"></param>
+        void Save(TrackedRecord record, bool submit = true);
     }
 }
