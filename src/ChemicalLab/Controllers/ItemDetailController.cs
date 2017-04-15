@@ -26,10 +26,8 @@ namespace EKIFVK.ChemicalLab.Controllers {
         [HttpGet("{id}")]
         [Verify("")]
         public JsonResult GetInfo(int id) {
-            var target = Database.ItemDetails.FirstOrDefault(e => e.Id == id);
-            if (target == null)
-                return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidDetail);
             return Json(data: Database.ItemDetails
+                .Where(e => e.Id == id)
                 .Include(e => e.ContainterTypeNavigation)
                 .Include(e => e.DetailTypeNavigation)
                 .Include(e => e.UnitNavigation)

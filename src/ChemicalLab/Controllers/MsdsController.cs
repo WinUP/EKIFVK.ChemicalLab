@@ -59,7 +59,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 var filePath = $@"{_path}/{e}";
                 if (System.IO.File.Exists(filePath)) System.IO.File.Delete(filePath);
             }
-            Database.SaveChanges();
+            Tracker.Get(Operation.DeleteMsds).By(CurrentUser).At(-1).From(ids).To("").Save();
             return Json();
         }
     }

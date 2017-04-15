@@ -50,6 +50,22 @@
         ChangeItemDetailRequired = 709,
         ChangeItemDetailNote = 710,
         ChangeItemDetailDisabled = 711,
-        UploadMsds = 800
+        UploadMsds = 800,
+        DeleteMsds = 801,
+        AddNewExperiment = 900,
+        DeleteExperiment = 901,
+        ChangeExperimentName = 902,
+        AddNewVendor = 1000,
+        DeleteVendor = 1001,
+        ChangeVendorName = 1002,
+        ChangeVendorDisabled = 1003,
+        AddNewItem = 1100,
+        DeleteItem = 1101,
+        ChangeItemOpenedTime = 1102,
+        ChangeItemLocation = 1103,
+        ChangeItemExperiment = 1104,
+        ChangeItemVendor = 1105,
+        ChangeItemUsed = 1106,
+        ChangeItemDisabled = 1107
     }
 }
