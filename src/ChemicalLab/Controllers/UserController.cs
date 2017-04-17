@@ -29,10 +29,12 @@ namespace EKIFVK.ChemicalLab.Controllers {
             var targetUser = Verifier.FindUser(name);
             if (targetUser == null)
                 return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidUserName);
+                var group = Verifier.FindGroup(targetUser);
             var data = new Hashtable {
                 {"name", targetUser.Name},
                 {"displayName", targetUser.DisplayName},
-                {"userGroup", Verifier.FindGroup(targetUser).Name}
+                {"userGroup", group.Name},
+                {"permission", group.Permission}
             };
             if (CurrentUser != null && CurrentUser.Name == name || Verifier.Check(CurrentUser, "US:MANAGE", CurrentAddress)) {
                 data["activeTime"] = targetUser.LastAccessTime?.ToString("yyyy-MM-dd HH:mm:ss");
@@ -159,6 +161,8 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 } else {
                     if (target.Password != param["accessToken"].ToString())
                         data["accessToken"] = Configuration.Value.IncorrectPassword;
+                    else if (target.Disabled)
+                        data["accessToken"] = Configuration.Value.OperationDenied;
                     else {
                         target.AccessToken = Guid.NewGuid().ToString().ToUpper();
                         Verifier.UpdateAccessTime(target, false);

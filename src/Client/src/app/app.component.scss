@@ -1,0 +1,50 @@
+.application-view {
+    display: flex;
+    overflow: hidden;
+    height: 100vh;
+    width: 100%;
+}
+.left-navigator {
+    width: 275px;
+    overflow-x: hidden;
+    overflow-y: scroll;
+    display: flex;
+    flex-direction: column;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    & > design-panel {
+        margin: 5px 10px 5px 10px;
+    }
+}
+.application-content {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    flex-direction: column;
+    .content-placeholder {
+        flex-grow: 1;
+        overflow-y: scroll;
+        display: flex;
+        flex-direction: column;
+        & > router-outlet + /deep/ * {
+            flex-grow: 1;
+            display: flex;
+        }
+    }
+    .notice {
+        position: fixed;
+        width: 350px;
+        padding: 15px;
+        background-color: #424242;
+        right: 0;
+        border-left: 3px solid #222222;
+        border-bottom: 3px solid #222222;
+        z-index: 1001;
+    }
+    & .content-placeholder > design-notice-area {
+        position: fixed;
+        width: 350px;
+        right: 0;
+        z-index: 1000;
+    }
+}

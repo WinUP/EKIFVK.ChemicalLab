@@ -1,0 +1,16 @@
+<div class="system-user-signin">
+    <div>
+        <div class="signin">
+            <p class="text-center">SIGN IN</p>
+            <md-input-container>
+                <input mdInput placeholder="Username" [(ngModel)]="name">
+            </md-input-container>
+            <p class="md-input-error-message">{{errors.name}}</p>
+            <md-input-container>
+                <input mdInput type="password" placeholder="Password" [(ngModel)]="password">
+            </md-input-container>
+            <p class="md-input-error-message">{{errors.password}}</p>
+            <button md-raised-button color="primary" (click)="signIn()">Sign In</button>
+        </div>
+    </div>
+</div>

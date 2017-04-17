@@ -1,0 +1,13 @@
+<div class="design-tree" [class.bordered]="bordered">
+    <div class="title" (click)="toggleExpand()" [hidden]="hideTitle">
+        <md-icon [hidden]="expandState=='expand'">keyboard_arrow_right</md-icon>
+        <md-icon [hidden]="expandState=='hide'">keyboard_arrow_up</md-icon>
+        <span>{{data.title}}</span>
+    </div>
+    <ul [@expandState]="expandState">
+        <li class="element" *ngFor="let e of data.elements" (click)="onItemClick(e.id)">
+            <md-icon>note</md-icon> {{e.title}}
+        </li>
+        <li *ngFor="let c of data.children"><design-tree [prefix]="prefix" [data]="c"></design-tree></li>
+    </ul>
+</div>

@@ -1,0 +1,35 @@
+/*!
+ * Bootstrap v3.3.7 (http://getbootstrap.com)
+ * Copyright 2011-2016 Twitter, Inc.
+ * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
+ */
+
+//
+// Load core variables and mixins
+// --------------------------------------------------
+
+@import "variables";
+@import "mixins";
+
+
+//
+// Panels
+// --------------------------------------------------
+
+// Common styles
+.panel {
+  @include box-shadow(0 1px 2px rgba(0,0,0,.05));
+}
+
+// Mixin for generating new styles
+@mixin panel-heading-styles($color) {
+  @include gradient-vertical($start-color: $color, $end-color: darken($color, 5%));
+}
+
+// Apply the mixin to the panel headings only
+.panel-default > .panel-heading   { @include panel-heading-styles($panel-default-heading-bg); }
+.panel-primary > .panel-heading   { @include panel-heading-styles($panel-primary-heading-bg); }
+.panel-success > .panel-heading   { @include panel-heading-styles($panel-success-heading-bg); }
+.panel-info > .panel-heading      { @include panel-heading-styles($panel-info-heading-bg); }
+.panel-warning > .panel-heading   { @include panel-heading-styles($panel-warning-heading-bg); }
+.panel-danger > .panel-heading    { @include panel-heading-styles($panel-danger-heading-bg); }

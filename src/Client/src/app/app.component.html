@@ -1,0 +1,31 @@
+<md-sidenav-container class="application-view">
+    <md-sidenav #sidenav>
+        <div class="left-navigator">
+            <design-panel title="Account" icon="account_box" *ngIf="userInformation==null">
+                <p>You must sign in before use this system</p>
+            </design-panel>
+            <design-panel title="Account" icon="account_box" *ngIf="userInformation!=null">
+                <p>ID：{{userInformation.name}}</p>
+                <p>Group: {{userInformation.userGroup}}</p>
+                <design-panel-action [initialize]="initAction" title="Overview"></design-panel-action>
+                <design-panel-action [initialize]="initAction" title="Profile"></design-panel-action>
+                <design-panel-action [initialize]="initAction" title="Sign out"></design-panel-action>
+            </design-panel>
+        </div>
+    </md-sidenav>
+    <div class="application-content">
+        <md-toolbar>
+            <md-icon class="touchable action-icon" (click)="sidenav.toggle()">menu</md-icon>
+            {{pageTitle}}
+            <span style="flex: 1 1 auto"></span>
+            <button md-button (click)="toggleNotice()"><md-icon>notifications</md-icon> Notices ({{noticeCount}})</button>
+        </md-toolbar>
+        <div class="content-placeholder">
+            <design-notice-area></design-notice-area>
+            <div class="notice" [hidden]="!showNotice">
+                <design-notice-history></design-notice-history>
+            </div>
+            <router-outlet></router-outlet>
+        </div>
+    </div>
+</md-sidenav-container>

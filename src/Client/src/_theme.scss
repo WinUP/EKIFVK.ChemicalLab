@@ -1,0 +1,18 @@
+@import '~@angular/material/theming';
+@include mat-core();
+$system-primary: mat-palette($mat-light-green);
+$system-accent:  mat-palette($mat-amber, A200, A100, A400);
+$system-warn:    mat-palette($mat-yellow);
+$system-theme:   mat-dark-theme($system-primary, $system-accent, $system-warn);
+@include angular-material-theme($system-theme);
+$system-border-color: #424242;
+$system-body-bg: #222222;
+$system-component-bg: #555555;
+$system-component-shadow: 0 0 2px 2px rgba(0, 0, 0, 0.2);
+$system-text-color: #F0F0F0;
+$system-brand-primary: mat-color($system-primary);
+$system-brand-success: #428bca;
+$system-brand-info: #5bc0de;
+$system-brand-warning: mat-color($system-warn);
+$system-brand-danger: mat-color($system-accent);
+@import 'bootstrap/bootstrap';

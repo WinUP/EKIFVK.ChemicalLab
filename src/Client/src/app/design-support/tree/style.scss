@@ -1,0 +1,48 @@
+@import '../../../theme';
+
+.design-tree {
+    &.bordered {
+        border: 2px solid $system-border-color;
+    }
+    .title {
+        margin: 0;
+        padding: 7px;
+        cursor: pointer;
+        display: block;
+        & > md-icon {
+            font-size: 12px;
+            width: 16px;
+            height: 16px;
+            line-height: 12px;
+        }
+        & > span {
+            font-size: 16px;
+            display: inline-block;
+            margin-left: 5px;
+        }
+    }
+    ul {
+        padding-left: 24px;
+        margin: 0 10px 0 0;
+        list-style: none;
+        overflow-y: hidden;
+        overflow-x: scroll;
+        display: block;
+        & > li {
+            display: block;
+            list-style: none;
+            padding: 7px 0 7px 0;
+            cursor: pointer;
+            &.element {
+                margin-left: 10px;
+                & > md-icon {
+                    font-size: 12px;
+                    width: 16px;
+                    height: 16px;
+                    line-height: 12px;
+                    margin-right: 5px;
+                }
+            }
+        }
+    }
+}
