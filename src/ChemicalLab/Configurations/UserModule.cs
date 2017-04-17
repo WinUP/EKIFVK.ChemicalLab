@@ -9,6 +9,6 @@
         public string OperationDenied { get; set; }
 
         //Server configurations
-        public string DefaulPasswordHash { get; set; }
+        public string DefaultPasswordHash { get; set; }
     }
 }

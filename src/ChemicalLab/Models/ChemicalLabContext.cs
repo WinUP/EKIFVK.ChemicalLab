@@ -61,7 +61,6 @@ namespace EKIFVK.ChemicalLab.Models {
             modelBuilder.Entity<TrackHistory>(entity => {
                 entity.ToTable("TrackHistory");
                 entity.Property(e => e.Id).HasColumnName("ID");
-                entity.Property(e => e.TargetRecord).HasMaxLength(32);
                 entity.HasOne(d => d.ModifierNavigation)
                     .WithMany(p => p.ModifyHistories)
                     .HasForeignKey(d => d.Modifier)

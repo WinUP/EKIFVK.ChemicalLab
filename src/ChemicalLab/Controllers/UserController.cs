@@ -56,7 +56,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                 return Json(StatusCodes.Status404NotFound, Configuration.Value.InvalidGroupName);
             user = new User {
                 Name = name,
-                Password = Configuration.Value.DefaulPasswordHash,
+                Password = Configuration.Value.DefaultPasswordHash,
                 DisplayName = parameter["displayName"].ToString(),
                 UserGroupNavigation = group,
                 Disabled = false,
@@ -117,7 +117,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
                     if (CurrentUser != target) {
                         if (Verifier.Check(CurrentUser, "US:MODIFY", CurrentAddress)) {
                             Tracker.Get(Operation.ResetUserPassword).By(CurrentUser).At(target.Id).From(target.Password).Do(() => {
-                                target.Password = Configuration.Value.DefaulPasswordHash;
+                                target.Password = Configuration.Value.DefaultPasswordHash;
                             }).To(target.Password).Save(false);
                         }
                         else

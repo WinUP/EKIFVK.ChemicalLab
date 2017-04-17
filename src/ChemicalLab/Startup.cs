@@ -31,13 +31,13 @@ namespace EKIFVK.ChemicalLab {
             services.Configure<PlaceModule>(Configuration.GetSection("PlaceModuleConfiguration"));
             services.AddDbContext<ChemicalLabContext>(
                 options => options.UseMySQL(Configuration.GetConnectionString("Database")));
-            services.AddSingleton<ITrackerService, TrackerService>();
+            services.AddScoped<ITrackerService, TrackerService>();
             services.AddScoped<IVerificationService, VerificationService>();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory) {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-            loggerFactory.AddDebug();
+            loggerFactory.AddDebug(LogLevel.Debug);
             app.UseMvc();
             //Support for non-iis environment
             app.UseForwardedHeaders(new ForwardedHeadersOptions {

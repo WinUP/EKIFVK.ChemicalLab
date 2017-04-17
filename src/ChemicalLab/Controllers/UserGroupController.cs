@@ -140,7 +140,7 @@ namespace EKIFVK.ChemicalLab.Controllers {
         }
 
         [HttpGet(".list")]
-        [Verify("GROUP:MANAGE")]
+        [Verify("UG:MANAGE")]
         public JsonResult GetGroupList(GroupSearchFilter filter) {
             var param = new List<object>();
             var query = QueryGenerator(filter, param);

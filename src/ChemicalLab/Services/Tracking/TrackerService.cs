@@ -12,10 +12,8 @@ namespace EKIFVK.ChemicalLab.Services.Tracking {
             return new TrackedRecord(operation, this);
         }
 
-        public void Save(TrackedRecord record, bool submit = true)
-        {
-            var history = new TrackHistory
-            {
+        public void Save(TrackedRecord record, bool submit = true) {
+            var history = new TrackHistory {
                 ModifierNavigation = record.Modifier,
                 HistoryType = (int) record.Operation,
                 ModifyTime = record.Time,

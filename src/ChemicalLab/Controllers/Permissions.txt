@@ -1,0 +1,35 @@
+﻿ContainerTypeController
+CT:ADD CT:DELETE CT:MANAGE
+
+ExperimentController
+EX:ADD EX:DELETE EX:MANAGE
+
+ItemController
+IT:ADD IT:DELETE IT:MANAGE
+
+ItemDetailTypeController
+DT:ADD DT:DELETE DT:MANAGE
+
+MsdsController
+ID:ADD MS:MANAGE MS:DELETE
+
+PhysicalStateController
+PS:ADD PS:DELETE PS:MANAGE
+
+StorageController
+SR:ADD SR:DELETE SR:MANAGE
+
+TrackController
+TK:GET TK:DELETE
+
+UnitController
+UN:ADD UN:DELETE UN:MANAGE
+
+UserController
+US:ADD US:DELETE US:MANAGE US:MODIFY US:GROUP US:DISABLE
+
+UserGroupController
+UG:ADD UG:DELETE UG:MANAGE UG:PERM UG:DISABLE
+
+VendorController
+VD:ADD VD:DELETE VD:MANAGE
