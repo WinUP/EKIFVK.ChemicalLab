@@ -1,3 +1,5 @@
+@import '../theme';
+
 .application-view {
     display: flex;
     overflow: hidden;
@@ -10,10 +12,13 @@
     overflow-y: scroll;
     display: flex;
     flex-direction: column;
-    padding-top: 5px;
-    padding-bottom: 5px;
+    padding-bottom: 10px;
     & > design-panel {
         margin: 5px 10px 5px 10px;
+    }
+    & > p {
+        font-size: 20px;
+        padding: 10px 0 10px 0;
     }
 }
 .application-content {
@@ -21,6 +26,23 @@
     height: 100vh;
     width: 100%;
     flex-direction: column;
+    .notice-count {
+        display: inline-block;
+        min-width: 10px;
+        padding: 2px 5px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+        color: $system-body-bg;
+        text-align: center;
+        white-space: nowrap;
+        vertical-align: middle;
+        background-color: $system-text-color;
+        border: 1px solid $system-body-bg;
+        border-radius: 10px;
+        margin-top: -17px;
+        margin-left: -12px;
+    }
     .content-placeholder {
         flex-grow: 1;
         overflow-y: scroll;

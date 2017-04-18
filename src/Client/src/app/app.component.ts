@@ -1,9 +1,9 @@
-import { Component, ViewChild, AfterViewInit, AfterContentInit, OnDestroy } from '@angular/core';
+import { Component, ViewChild, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router'
 import { MdSidenav } from '@angular/material'
 import { Subscription } from 'rxjs/Subscription';
 import { PanelActionComponent } from './design-support/panel/panel-action.component';
-import { ServerData, Message, Messages, LocalData, StorageType, SessionStorageKey,
+import { ServerData, Messages, LocalData, StorageType, SessionStorageKey,
          CacheStorageKey, LocalStorageKey, UserInformation, ServerMessage } from './server/structure';
 import { StorageService } from './server/storage.service';
 import { MessageService } from './server/message.service';
@@ -15,15 +15,20 @@ import { Notice } from './design-support/notice/notice'
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.scss']
 })
-export class ApplicationComponent implements AfterViewInit, AfterContentInit, OnDestroy {
+export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
     @ViewChild(MdSidenav) public sidenav: MdSidenav;
     private messageListener: Subscription;
     private showNotice: boolean = false;
-    private pageTitle: string = '';
+    private pageTitle: string = 'SIGN IN';
     private noticeCount:number = 0;
     private userInformation: UserInformation = null;
 
     constructor(public storage: StorageService, public message: MessageService, public user: UserService, public router: Router) { }
+
+    public ngOnInit(): void {
+        this.userInformation = this.storage.read<UserInformation>(StorageType.Session, SessionStorageKey.UserInformation);
+        if (this.userInformation == null) this.router.navigate(['/signin']);
+    }
 
     public ngAfterViewInit(): void {
         this.messageListener = this.message.listen(m => {
@@ -42,11 +47,6 @@ export class ApplicationComponent implements AfterViewInit, AfterContentInit, On
             else if (m.is(Messages.CardActionClick))
                 this.navigate(m.read<PanelActionComponent>());
         });
-    }
-
-    public ngAfterContentInit(): void {
-        this.userInformation = this.storage.read<UserInformation>(StorageType.Session, SessionStorageKey.UserInformation);
-        if (this.userInformation == null) this.router.navigate(['/signin']);
     }
 
     public ngOnDestroy(): void {
@@ -91,14 +91,15 @@ export class ApplicationComponent implements AfterViewInit, AfterContentInit, On
     public navigate(action: PanelActionComponent): void {
         this.sidenav.close();
         var path = '';
-        if (action.title == 'Sign out') this.signOut();
+        if (action.title == 'Sign out')
+            this.signOut();
         else if (action.title == 'Ovewview') {
             path = '/overview';
-            this.pageTitle = 'Ovewvier';
+            this.pageTitle = 'OVERVIEW';
         }
         else if (action.title == 'Profile') {
             path = '/profile';
-            this.pageTitle = 'Profile';
+            this.pageTitle = 'PROFILE';
         }
         if (path != '') this.router.navigate([path]);
     }

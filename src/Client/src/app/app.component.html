@@ -1,8 +1,10 @@
 <md-sidenav-container class="application-view">
     <md-sidenav #sidenav>
         <div class="left-navigator">
-            <design-panel title="Account" icon="account_box" *ngIf="userInformation==null">
-                <p>You must sign in before use this system</p>
+            <p class="text-center">COMMAND CARDS</p>
+            <design-panel title="What you should do" icon="warning" *ngIf="userInformation==null">
+                <p>You must sign in before use this system.</p>
+                <p>If you have no account, please contact the system manager to create one.</p>
             </design-panel>
             <design-panel title="Account" icon="account_box" *ngIf="userInformation!=null">
                 <p>ID：{{userInformation.name}}</p>
@@ -18,7 +20,9 @@
             <md-icon class="touchable action-icon" (click)="sidenav.toggle()">menu</md-icon>
             {{pageTitle}}
             <span style="flex: 1 1 auto"></span>
-            <button md-button (click)="toggleNotice()"><md-icon>notifications</md-icon> Notices ({{noticeCount}})</button>
+            <button md-button (click)="toggleNotice()">
+                <md-icon>notifications</md-icon><span class="notice-count">{{noticeCount}}</span>
+            </button>
         </md-toolbar>
         <div class="content-placeholder">
             <design-notice-area></design-notice-area>

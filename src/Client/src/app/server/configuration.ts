@@ -7,9 +7,9 @@ export var Configuration = {
     localStorageRoot: 'ChemicalLab',
     TokenHttpHeader: 'X-Access-Token',
     refreshBy: function (method: (url: string, body?: any) => Observable<Response>, server: string, username: string, password: string): Observable<Response> {
-        return method(`${server}/user/${username}`, { AccessToken: password });
+        return method(`${server}/user/${username}`, { accessToken: password });
     },
     getTokenBy: function (response: Response): string {
-        return response.json()['AccessToken'];
+        return response.json()['accessToken'];
     }
 };

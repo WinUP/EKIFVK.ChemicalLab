@@ -1,10 +1,10 @@
-<div [hidden]="notices.length > 0" style="text-align: center; padding-top: 7px">还没有过任何消息</div>
+<div [hidden]="notices.length > 0" style="text-align: center; padding-top: 7px">STILL NO NOTICES</div>
 <ul class="design-notice design-notice-history">
     <li *ngFor="let n of notices">
         <div>
             <p>
                 <md-icon>{{n.icon}}</md-icon>
-                <span>{{n.title}} <span class="text-success">{{n.time.getHours() + ':' + n.time.getMinutes() + ':' + n.time.getSeconds()}}</span></span>
+                <span>{{n.title}} <span class="text-primary">{{n.time.getHours() + ':' + n.time.getMinutes() + ':' + n.time.getSeconds()}}</span></span>
             </p>
             <p>{{n.content}}</p>
         </div>

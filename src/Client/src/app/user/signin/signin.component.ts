@@ -56,9 +56,9 @@ export class SigninComponent {
         this.user.getInfo(this.name).subscribe(info => {
             this.message.prepare().tag(Messages.Notice).value<Notice>({
                 icon: 'account_box',
-                title: `System notice`,
+                title: `Your information`,
                 time: new Date(),
-                content: 'Your information is here, enjoy!'
+                content: 'We got your information. Now you can use the system.'
             }).go();
             this.storage.session(SessionStorageKey.UserInformation, info);
         }, (error: ServerData) => {

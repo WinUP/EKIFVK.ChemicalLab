@@ -10,12 +10,20 @@
         width: 50%;
         max-width: 511px;
         min-width: 300px;
-        border: 2px solid $system-border-color;
-        border-radius: 2px;
+        border: 4px solid $system-border-color;
+        border-radius: 4px;
+        padding: 20px 0 20px 0;
         div.signin {
             padding: 20px;
             display: flex;
             flex-direction: column;
+            & > div.logo {
+                display: block;
+                width: 100px;
+                height: 100px;
+                margin: 0 auto;
+                background-image: url(../../../assets/Chemical.svg);
+            }
         }
         md-input-container {
             display: block;
@@ -24,6 +32,7 @@
             display: block;
             margin: 10px 50px 0 50px;
             padding: 10px;
+            color: $system-text-color
         }
     }
 }
