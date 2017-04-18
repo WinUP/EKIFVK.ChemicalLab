@@ -5,6 +5,7 @@ export var Configuration = {
     functionProxy: true,
     serverAddress: 'http://localhost:54205/api/1.1',
     localStorageRoot: 'ChemicalLab',
+    sessionStorageRoot: 'ChemicalLab_SESSION',
     TokenHttpHeader: 'X-Access-Token',
     refreshBy: function (method: (url: string, body?: any) => Observable<Response>, server: string, username: string, password: string): Observable<Response> {
         return method(`${server}/user/${username}`, { accessToken: password });

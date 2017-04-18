@@ -1,11 +1,11 @@
 import { Component } from '@angular/core';
 import { UserService } from '../user.service'
 import { Messages, ServerData, LocalData, LocalStorageKey, SessionStorageKey, 
-         ServerMessage, UserInformation } from '../../server/structure'
-import { StorageService } from '../../server/storage.service'
-import { MessageService } from '../../server/message.service'
-import { Notice } from '../../design-support/notice/notice'
-import * as Crypto from 'crypto-js'
+         ServerMessage, UserInformation } from '../../server/structure';
+import { StorageService } from '../../server/storage.service';
+import { MessageService } from '../../server/message.service';
+import { Notice } from '../../design-support/notice/notice';
+import * as Crypto from 'crypto-js';
 
 @Component({
     selector: 'system-user-signin',
@@ -16,6 +16,7 @@ export class SigninComponent {
     public name: string = '';
     public password: string = '';
     public errors = { name: '', password: '' }
+    public processing: boolean = false;
 
     constructor(public message: MessageService, public storage: StorageService, public user: UserService) { }
 
@@ -29,6 +30,7 @@ export class SigninComponent {
             this.errors.password = 'This cannot be empty';
             return;
         }
+        this.processing = true;
         var passwordHash = (Crypto.SHA256(this.password) + '').toUpperCase();
         this.user.signIn(this.name, passwordHash).subscribe(token => {
             this.storage.local(LocalStorageKey.Username, this.name);
@@ -38,7 +40,7 @@ export class SigninComponent {
                 icon: 'account_box',
                 title: `Hello`,
                 time: new Date(),
-                content: `${this.name}, welcome! We are trying to get your information.`
+                content: `We are trying to get your information.`
             }).go();
             this.updateUserInformation();
             this.name =  this.password = '';
@@ -49,6 +51,7 @@ export class SigninComponent {
                 this.errors.name = 'We cannot find this account';
             else if (error.message == ServerMessage.User.OperationDenied)
                 this.errors.name = 'This account is disabled';
+                this.processing = false;
         });
     }
 
@@ -56,7 +59,7 @@ export class SigninComponent {
         this.user.getInfo(this.name).subscribe(info => {
             this.message.prepare().tag(Messages.Notice).value<Notice>({
                 icon: 'account_box',
-                title: `Your information`,
+                title: `Welcome!`,
                 time: new Date(),
                 content: 'We got your information. Now you can use the system.'
             }).go();
@@ -71,6 +74,7 @@ export class SigninComponent {
                 time: new Date(),
                 content: 'We cannot get your info: ' + notice
             }).go();
+            this.processing = false;
         });
     }
 }

@@ -46,15 +46,16 @@
             }
         }
         & > md-icon {
-            width: 45px;
-            height: 45px;
-            line-height: 45px;
+            width: 35px;
+            height: 35px;
+            line-height: 35px;
             cursor: pointer;
             transition: all ease 0.2s;
             text-align: center;
             border-radius: 50%;
             &:hover {
-                background-color: $system-body-bg;
+                color: darken($system-text-color, 40%);
+                transform: scale(0.9);
             }
         }
     }

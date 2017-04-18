@@ -19,15 +19,28 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
     @ViewChild(MdSidenav) public sidenav: MdSidenav;
     private messageListener: Subscription;
     private showNotice: boolean = false;
-    private pageTitle: string = 'SIGN IN';
+    private pageTitle: string = '';
     private noticeCount:number = 0;
     private userInformation: UserInformation = null;
+    private path: string = window.location.pathname;
 
     constructor(public storage: StorageService, public message: MessageService, public user: UserService, public router: Router) { }
 
     public ngOnInit(): void {
         this.userInformation = this.storage.read<UserInformation>(StorageType.Session, SessionStorageKey.UserInformation);
         if (this.userInformation == null) this.router.navigate(['/signin']);
+        if (this.path == '/')
+            this.path = this.userInformation == null ? '/signin' : '/dashboard';
+        if (this.userInformation == null) this.path = '/signin';
+        var index = this.path.indexOf('/', 1);
+        if (index > -1)
+            this.path = this.path.substring(1, this.path.indexOf('/', 1))
+        else
+            this.path = this.path.substring(1);
+        if (this.path == 'signin') this.pageTitle = 'SIGN IN';
+        else if (this.path == 'dashboard') this.pageTitle = 'DASHBOARD';
+        else if (this.path == 'profile') this.pageTitle = 'PROFILE';
+        this.preInitAction();
     }
 
     public ngAfterViewInit(): void {
@@ -35,17 +48,15 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
             if (m.is(Messages.Storage)) {
                 var data = m.read<LocalData>();
                 if (data.type == StorageType.Session && data.key == SessionStorageKey.UserInformation) {
-                     this.userInformation = data.value;
-                     if (this.userInformation != null) {
-                         this.pageTitle = 'Overview';
-                         this.router.navigate(['/overview']);
-                     }
+                    if (data.value != null)
+                        this.navigate('a_dashboard');
+                    this.userInformation = data.value;
                 }
             } 
             else if (m.is(Messages.PushNoticeHistory))
                 this.noticeCount ++;
             else if (m.is(Messages.CardActionClick))
-                this.navigate(m.read<PanelActionComponent>());
+                this.navigate(m.read<string>());
         });
     }
 
@@ -53,26 +64,43 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
         this.messageListener.unsubscribe();
     }
 
+    public preInitAction(): void {
+        var _path = () => this.path;
+        this.initAction = function (action: PanelActionComponent): void {
+            if (action.action == 'a_signin' && _path() == 'signin') action.toggleActive();
+            if (action.action == 'a_dashboard' && _path() == 'dashboard') action.toggleActive();
+            if (action.action == 'a_profile' && _path() == 'profile') action.toggleActive();
+        };
+    };
+
+    public initAction: (action: PanelActionComponent) => void;
+
     public toggleNotice(): void {
         if (!this.showNotice) this.noticeCount = 0;
         this.showNotice = !this.showNotice;
     }
 
     public signOut(): void {
+        this.message.prepare().tag(Messages.Notice).value<Notice>({
+                icon: 'account_box',
+                title: `Sign out`,
+                time: new Date(),
+                content: 'We are trying to sign out you...'
+            }).go();
         this.user.signOut(this.storage.read<string>(StorageType.Local, LocalStorageKey.Username)).subscribe(v => {
             this.storage.local(LocalStorageKey.Username, null);
             this.storage.local(LocalStorageKey.Password, null);
             this.storage.local(LocalStorageKey.Token, null);
+            this.navigate('a_signin');
             this.storage.session(SessionStorageKey.UserInformation, null);
             this.storage.cache(CacheStorageKey.CurrentCardAction, null);
             this.storage.cache(CacheStorageKey.PreviousCardAction, null);
             this.message.prepare().tag(Messages.Notice).value<Notice>({
                 icon: 'account_box',
-                title: `Account`,
+                title: `Sign out`,
                 time: new Date(),
-                content: `Sign out successful`
+                content: `Your account information was removed from this browser successfully.`
             }).go();
-            this.router.navigate(['/signin']);
         }, (error: ServerData) => {
             var notice: string = 'Request was rejected by server';
             if (error.message == ServerMessage.User.OperationDenied)
@@ -88,29 +116,30 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
         });
     }
 
-    public navigate(action: PanelActionComponent): void {
+    public navigate(action: string): void {
         this.sidenav.close();
         var path = '';
-        if (action.title == 'Sign out')
-            this.signOut();
-        else if (action.title == 'Ovewview') {
-            path = '/overview';
-            this.pageTitle = 'OVERVIEW';
+        if (action == 'a_signin') {
+            path = '/signin';
+            this.path = 'signin';
+            this.pageTitle = 'SIGN IN';
         }
-        else if (action.title == 'Profile') {
+        else if (action == 'a_signout')
+            this.signOut();
+        else if (action == 'a_dashboard') {
+            path = '/dashboard';
+            this.path = 'dashboard';
+            this.pageTitle = 'DASHBOARD';
+        }
+        else if (action == 'a_profile') {
             path = '/profile';
+            this.path = 'profile';
             this.pageTitle = 'PROFILE';
         }
         if (path != '') this.router.navigate([path]);
     }
 
-    public initAction(action: PanelActionComponent): void {
-        var path = window.location.pathname;
-        if (path == '/')
-            path = this.userInformation == null ? '/signin' : '/overview';
-        var index = path.indexOf('/', 1);
-        if (index > -1) path = path.substring(1, path.indexOf('/', 1))
-        else path = path.substring(1);
-        if (action.title == 'Overview' && path == 'overview') action.toggleActive();
+    public newTab(): void {
+        window.open(window.location.href, '_blank');
     }
 }

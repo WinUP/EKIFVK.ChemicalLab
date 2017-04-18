@@ -10,7 +10,7 @@
                 <input mdInput type="password" placeholder="Password" [(ngModel)]="password">
             </md-input-container>
             <p class="md-input-error-message">{{errors.password}}</p>
-            <button md-raised-button color="primary" (click)="signIn()">Sign In</button>
+            <button md-raised-button color="primary" (click)="signIn()" [disabled]="processing">Sign In</button>
         </div>
     </div>
 </div>

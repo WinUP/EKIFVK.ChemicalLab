@@ -13,6 +13,7 @@ import { Messages, Events, EventArgs, StorageType, CacheStorageKey } from '../..
 export class PanelActionComponent implements OnInit, AfterViewInit, OnDestroy {
     @Input() public title: string;
     @Input() public initialize: (action: PanelActionComponent) => void;
+    @Input() public action: string = null;
     private messageListener: Subscription;
     private active: boolean = false;
 
@@ -25,8 +26,8 @@ export class PanelActionComponent implements OnInit, AfterViewInit, OnDestroy {
 
     public ngAfterViewInit(): void {
         this.messageListener = this.message.listen(m => {
-            if (m.is(Messages.CardActionClick))
-                this.active = m.read<PanelActionComponent>() == this;
+            if (this.action != null && m.is(Messages.CardActionClick))
+                this.active = m.read<string>() == this.action;
         });
     }
 
@@ -39,12 +40,11 @@ export class PanelActionComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     public onClick(event): void {
-        //event.stopPropagation();
         var result: EventArgs = { canceled: false };
         if (this.event.fire(Events.CardActionClick, result).canceled) return;
         this.storage.cache(CacheStorageKey.PreviousCardAction,
             this.storage.read(StorageType.Cache, CacheStorageKey.CurrentCardAction));
-        this.storage.cache(CacheStorageKey.CurrentCardAction, this);
-        this.message.prepare().tag(Messages.CardActionClick).value(this).go();
+        this.storage.cache(CacheStorageKey.CurrentCardAction, this.action);
+        this.message.prepare().tag(Messages.CardActionClick).value(this.action).go();
     }
 }

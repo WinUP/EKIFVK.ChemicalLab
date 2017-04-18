@@ -13,11 +13,6 @@
 .touchable {
     cursor: pointer;
 }
-.action-icon {
-    display: inline-block;
-    margin-left: 5px;
-    margin-right: 10px;
-}
 .mat-sidenav-content {
     flex-grow: 1;
 }
@@ -29,9 +24,10 @@
 .mat-input-wrapper {
     margin-bottom: 2px !important;
 }
-.application-content button {
-    font-size: 14px;
-    md-icon {
-        font-size: 20px;
-    }
+.warning-title {
+    font-size: 30px;
+    text-align: center;
+    display: block;
+    width: 100%;
+    padding: 50px 0 50px 0;
 }

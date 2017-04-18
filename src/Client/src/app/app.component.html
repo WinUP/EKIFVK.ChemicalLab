@@ -5,21 +5,24 @@
             <design-panel title="What you should do" icon="warning" *ngIf="userInformation==null">
                 <p>You must sign in before use this system.</p>
                 <p>If you have no account, please contact the system manager to create one.</p>
+                <design-panel-action action="a_signin" [initialize]="initAction" title="Sign in"></design-panel-action>
             </design-panel>
-            <design-panel title="Account" icon="account_box" *ngIf="userInformation!=null">
-                <p>ID：{{userInformation.name}}</p>
-                <p>Group: {{userInformation.userGroup}}</p>
-                <design-panel-action [initialize]="initAction" title="Overview"></design-panel-action>
-                <design-panel-action [initialize]="initAction" title="Profile"></design-panel-action>
-                <design-panel-action [initialize]="initAction" title="Sign out"></design-panel-action>
+            <design-panel [title]="userInformation.displayName" icon="account_box" *ngIf="userInformation!=null">
+                <p>You are {{userInformation.userGroup}}.</p>
+                <design-panel-action action="a_dashboard" [initialize]="initAction" title="Dashboard"></design-panel-action>
+                <design-panel-action action="a_profile" [initialize]="initAction" title="Profile"></design-panel-action>
+                <design-panel-action action="a_signout" [initialize]="initAction" title="Sign out"></design-panel-action>
             </design-panel>
         </div>
     </md-sidenav>
     <div class="application-content">
         <md-toolbar>
             <md-icon class="touchable action-icon" (click)="sidenav.toggle()">menu</md-icon>
-            {{pageTitle}}
+            <span style="display:inline-block;padding-left:10px">{{pageTitle}}</span>
             <span style="flex: 1 1 auto"></span>
+            <button md-button (click)="newTab()">
+                <md-icon>open_in_new</md-icon>
+            </button>
             <button md-button (click)="toggleNotice()">
                 <md-icon>notifications</md-icon><span class="notice-count">{{noticeCount}}</span>
             </button>

@@ -9,13 +9,19 @@ export class StorageService {
     
     constructor(private message: MessageService) {
         window.addEventListener('storage', listener => {
-            if (listener.storageArea == window.sessionStorage) {
-                console.log(`----- [StorageService] SESSIONUPDATE ${listener.key} ->`);
-                console.log(listener.newValue);
-                this.message.prepare().tag(Messages.Storage).value<LocalData>({
-                    key: listener.key, value: listener.newValue, type: StorageType.Session
-                }).go();
-            } 
+            if (listener.storageArea == window.localStorage && listener.key == Configuration.sessionStorageRoot) {
+                var oldData = JSON.parse(listener.oldValue);
+                var newData = JSON.parse(listener.newValue);
+                Object.keys(newData).forEach(e => {
+                    if (newData[e] != oldData[e]) {
+                        console.log(`----- [StorageService] UPDATE ${e} ->`);
+                        console.log(newData[e]);
+                        this.message.prepare().tag(Messages.Storage).value<LocalData>({
+                            key: e, value: newData[e], type: StorageType.Session
+                        }).go();
+                    }
+                });
+            }
         });
     }
 
@@ -35,11 +41,11 @@ export class StorageService {
     public session(key: string, value: any): void {
         console.log(`----- [StorageService] SESSION key: ${key} value ->`);
         console.log(value);
-        var data = window.sessionStorage.getItem(Configuration.localStorageRoot);
+        var data = window.localStorage.getItem(Configuration.sessionStorageRoot);
         var storage: any = {};
         if (data != null) storage = JSON.parse(data);
         storage[key] = value;
-        window.sessionStorage.setItem(Configuration.localStorageRoot, JSON.stringify(storage));
+        window.localStorage.setItem(Configuration.sessionStorageRoot, JSON.stringify(storage));
         this.message.prepare().tag(Messages.Storage).value<LocalData>({
             key: key, value: value, type: StorageType.Session
         }).go();
@@ -63,7 +69,7 @@ export class StorageService {
             result = storage[key];
         }
         else if (type == StorageType.Session) {
-            var localData = window.sessionStorage.getItem(Configuration.localStorageRoot);
+            var localData = window.localStorage.getItem(Configuration.sessionStorageRoot);
             if (localData == null) return result;
             var storage = JSON.parse(localData);
             result = storage[key];

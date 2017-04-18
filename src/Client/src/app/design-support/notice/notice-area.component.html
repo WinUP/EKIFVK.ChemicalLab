@@ -3,7 +3,7 @@
         <div>
             <p>
                 <md-icon>{{n.icon}}</md-icon>
-                <span>{{n.title}} <span class="text-primary">{{n.time.getHours() + ':' + n.time.getMinutes() + ':' + n.time.getSeconds()}}</span></span>
+                <span>{{n.title}} <span class="text-primary">{{n.time | date: 'HH:mm:ss'}}</span></span>
             </p>
             <p>{{n.content}}</p>
         </div>

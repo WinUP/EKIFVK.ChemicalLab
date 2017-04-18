@@ -1,0 +1,11 @@
+<p class="warning-title" *ngIf="info==null">SIGN IN FIRST</p>
+<div class="profile" *ngIf="info!=null">
+    <header>
+        <div class="container">
+            <md-icon class="logo">account_circle</md-icon>
+            <p>Welcome, {{info.displayName}}!</p>
+        </div>
+    </header>
+
+</div>
+
