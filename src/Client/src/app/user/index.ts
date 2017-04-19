@@ -7,6 +7,7 @@ import { DesignSupportModule } from '../design-support'
 import { ServerModule } from '../server';
 import { SigninComponent } from './signin/signin.component';
 import { ProfileComponent } from './profile/profile.component';
+import { PasswordConfirmDialogComponent } from './profile/password-confirm-dialog/password-confirm-dialog.component';
 import { UserService } from './user.service';
 
 @NgModule({
@@ -23,12 +24,14 @@ import { UserService } from './user.service';
     ],
     declarations: [
         SigninComponent,
-        ProfileComponent
+        ProfileComponent,
+        PasswordConfirmDialogComponent
     ],
     exports: [
         SigninComponent,
         ProfileComponent
     ],
+    entryComponents: [ PasswordConfirmDialogComponent ],
     providers: [ UserService ]
 })
 export class UserModule { }

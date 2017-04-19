@@ -1,4 +1,5 @@
 import { Component, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { MdDialog } from '@angular/material';
 import { Subscription } from 'rxjs/Subscription';
 import { UserInformation, StorageType, LocalStorageKey, SessionStorageKey,
          Messages, LocalData, ServerData, ServerMessage } from '../../server/structure';
@@ -6,6 +7,7 @@ import { StorageService } from '../../server/storage.service';
 import { MessageService } from '../../server/message.service';
 import { UserService } from '../user.service';
 import { Notice } from '../../design-support/notice/notice';
+import { PasswordConfirmDialogComponent } from './password-confirm-dialog/password-confirm-dialog.component';
 import * as Crypto from 'crypto-js';
 
 @Component({
@@ -71,7 +73,7 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {
     };
     private messageListener: Subscription;
 
-    constructor(public message: MessageService, public storage: StorageService, public user: UserService) { }
+    constructor(public message: MessageService, public storage: StorageService, public user: UserService, public dialog: MdDialog) { }
 
     public ngOnInit(): void {
         this.parseInformarion(this.storage.read<UserInformation>(StorageType.Session, SessionStorageKey.UserInformation));
@@ -144,27 +146,31 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {
             this.errors.password = 'This cannot be empty';
             return;
         }
-        var passwordHash = (Crypto.SHA256(this.password) + '').toUpperCase();
-        this.user.changeInfo(this.info.name, { password: passwordHash }).subscribe(v => {
-            this.storage.local(LocalStorageKey.Password, passwordHash);
-            this.message.prepare().tag(Messages.Notice).value<Notice>({
-                icon: 'account_box',
-                title: `Password changed`,
-                time: new Date(),
-                content: `We are refreshing your new information.`
-            }).go();
-            this.updateUserInformation();
-        }, (error: ServerData) => {
-            var notice: string = 'Request was rejected by server';
-            if (error.data.password == ServerMessage.Authentication.InvalidString)
-                notice = 'Cannot verify your identity';
-            this.message.prepare().tag(Messages.Notice).value<Notice>({
-                icon: 'account_box',
-                title: `Error`,
-                time: new Date(),
-                content: 'We cannot change your password: ' + notice
-            }).go();
-        });
+        this.dialog.open(PasswordConfirmDialogComponent, { data: this.password })
+        .afterClosed().subscribe((r: boolean) => {
+            if (!r) return;
+            var passwordHash = (Crypto.SHA256(this.password) + '').toUpperCase();
+            this.user.changeInfo(this.info.name, { password: passwordHash }).subscribe(v => {
+                this.storage.local(LocalStorageKey.Password, passwordHash);
+                this.message.prepare().tag(Messages.Notice).value<Notice>({
+                    icon: 'account_box',
+                    title: `Password changed`,
+                    time: new Date(),
+                    content: `We are refreshing your new information.`
+                }).go();
+                this.updateUserInformation();
+            }, (error: ServerData) => {
+                var notice: string = 'Request was rejected by server';
+                if (error.data.password == ServerMessage.Authentication.InvalidString)
+                    notice = 'Cannot verify your identity';
+                this.message.prepare().tag(Messages.Notice).value<Notice>({
+                    icon: 'account_box',
+                    title: `Error`,
+                    time: new Date(),
+                    content: 'We cannot change your password: ' + notice
+                }).go();
+            });
+        })
     }
 
     public changeDisplayName(): void {

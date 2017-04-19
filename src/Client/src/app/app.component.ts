@@ -76,7 +76,7 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
     public initAction: (action: PanelActionComponent) => void;
 
     public toggleNotice(): void {
-        if (!this.showNotice) this.noticeCount = 0;
+        this.noticeCount = 0;
         this.showNotice = !this.showNotice;
     }
 

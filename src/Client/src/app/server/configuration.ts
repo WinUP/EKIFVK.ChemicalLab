@@ -3,7 +3,7 @@ import { Observable } from 'rxjs/Observable';
 
 export var Configuration = {
     functionProxy: true,
-    serverAddress: 'http://localhost:54205/api/1.1',
+    serverAddress: 'http://localhost:5000/api/1.1',
     localStorageRoot: 'ChemicalLab',
     sessionStorageRoot: 'ChemicalLab_SESSION',
     TokenHttpHeader: 'X-Access-Token',
