@@ -1,11 +1,96 @@
 <p class="warning-title" *ngIf="info==null">SIGN IN FIRST</p>
 <div class="profile" *ngIf="info!=null">
     <header>
-        <div class="container">
-            <md-icon class="logo">account_circle</md-icon>
+        <div class="container" style="position:relative">
+            <md-icon class="logo">account_box</md-icon>
             <p>Welcome, {{info.displayName}}!</p>
         </div>
     </header>
-
+    <div class="container">
+        <p class="group">{{info.userGroup}}</p>
+        <div class="row">
+            <div class="col-sm-6 col-md-4">
+                <div class="panel panel-default">
+                    <div class="panel-heading">Summary</div>
+                    <div class="panel-body">
+                        <p>My account is <span class="text-primary">{{info.name}}</span>.</p>
+                        <p>System should call me as <span class="text-primary">{{info.displayName}}</span>.</p>
+                        <p>I am a member of <span class="text-primary">{{info.userGroup}}</span>.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <div class="panel panel-default">
+                    <div class="panel-heading">Security</div>
+                    <div class="panel-body">
+                        <p>Last activation is at <span class="text-primary">{{info.activeTime}}</span>.</p>
+                        <p>Use this to change your password if needed:</p>
+                        <div style="display:flex">
+                            <md-input-container style="flex-grow:1">
+                                <input mdInput type="password" placeholder="New Password" [(ngModel)]="password">
+                            </md-input-container>
+                            <button md-button style="margin-left:10px" (click)="changePassword()">APPLY</button>
+                        </div>
+                        <p class="md-input-error-message">{{errors.password}}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <div class="panel panel-default">
+                    <div class="panel-heading">Display name</div>
+                    <div class="panel-body">
+                        <p>Which name would you want us to use to call you?</p>
+                        <div style="display:flex">
+                            <md-input-container style="flex-grow:1">
+                                <input mdInput type="text" placeholder="Display name" [(ngModel)]="info.displayName">
+                            </md-input-container>
+                            <button md-button style="margin-left:10px" (click)="changeDisplayName()">UPDATE</button>
+                        </div>
+                        <p class="md-input-error-message">{{errors.displayName}}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="permission row">
+            <p>Permission table for {{info.userGroup}}</p>
+            <div class="col-sm-6 col-md-4">
+                <ul>
+                    <li>User Management</li>
+                    <li *ngFor="let p of permission.User">
+                        <md-icon [hidden]="p.value">clear</md-icon>
+                        <md-icon [hidden]="!p.value" class="can">done</md-icon>
+                        <span>{{p.note}}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <ul>
+                    <li>History Tracker</li>
+                    <li *ngFor="let p of permission.History">
+                        <md-icon [hidden]="p.value">clear</md-icon>
+                        <md-icon [hidden]="!p.value" class="can">done</md-icon>
+                        <span>{{p.note}}</span>
+                    </li>
+                </ul>
+                <ul>
+                    <li>Storage Management</li>
+                    <li *ngFor="let p of permission.Storage">
+                        <md-icon [hidden]="p.value">clear</md-icon>
+                        <md-icon [hidden]="!p.value" class="can">done</md-icon>
+                        <span>{{p.note}}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-sm-6 col-md-4">
+                <ul>
+                    <li>Chemical Lab Management</li>
+                    <li *ngFor="let p of permission.Lab">
+                        <md-icon [hidden]="p.value">clear</md-icon>
+                        <md-icon [hidden]="!p.value" class="can">done</md-icon>
+                        <span>{{p.note}}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
 </div>
-

@@ -7,6 +7,9 @@ EX:ADD EX:DELETE EX:MANAGE
 ItemController
 IT:ADD IT:DELETE IT:MANAGE
 
+ItemDetailController
+ID:ADD ID:DELETE ID:MANAGE
+
 ItemDetailTypeController
 DT:ADD DT:DELETE DT:MANAGE
 

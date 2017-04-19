@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { UserService } from '../user.service'
+import { UserService } from '../user.service';
 import { Messages, ServerData, LocalData, LocalStorageKey, SessionStorageKey, 
          ServerMessage, UserInformation } from '../../server/structure';
 import { StorageService } from '../../server/storage.service';
@@ -35,7 +35,6 @@ export class SigninComponent {
         this.user.signIn(this.name, passwordHash).subscribe(token => {
             this.storage.local(LocalStorageKey.Username, this.name);
             this.storage.local(LocalStorageKey.Password, passwordHash);
-            this.storage.local(LocalStorageKey.Token, token);
             this.message.prepare().tag(Messages.Notice).value<Notice>({
                 icon: 'account_box',
                 title: `Hello`,
@@ -64,6 +63,7 @@ export class SigninComponent {
                 content: 'We got your information. Now you can use the system.'
             }).go();
             this.storage.session(SessionStorageKey.UserInformation, info);
+            this.message.prepare().tag(Messages.CardActionClick).value('a_dashboard').go();
         }, (error: ServerData) => {
             var notice: string = 'Request was rejected by server';
             if (error.message == ServerMessage.Authentication.InvalidString)

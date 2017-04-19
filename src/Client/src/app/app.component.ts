@@ -29,9 +29,11 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
     public ngOnInit(): void {
         this.userInformation = this.storage.read<UserInformation>(StorageType.Session, SessionStorageKey.UserInformation);
         if (this.userInformation == null) this.router.navigate(['/signin']);
-        if (this.path == '/')
-            this.path = this.userInformation == null ? '/signin' : '/dashboard';
-        if (this.userInformation == null) this.path = '/signin';
+        this.path = this.userInformation == null ? '/signin' : this.path;
+        if (this.path == '/signin' && this.userInformation != null) {
+            this.path = '/dashboard';
+            this.router.navigate(['/dashboard']);
+        }
         var index = this.path.indexOf('/', 1);
         if (index > -1)
             this.path = this.path.substring(1, this.path.indexOf('/', 1))
@@ -48,8 +50,6 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
             if (m.is(Messages.Storage)) {
                 var data = m.read<LocalData>();
                 if (data.type == StorageType.Session && data.key == SessionStorageKey.UserInformation) {
-                    if (data.value != null)
-                        this.navigate('a_dashboard');
                     this.userInformation = data.value;
                 }
             } 
@@ -85,16 +85,10 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
                 icon: 'account_box',
                 title: `Sign out`,
                 time: new Date(),
-                content: 'We are trying to sign out you...'
+                content: 'We are trying to sign out your account...'
             }).go();
         this.user.signOut(this.storage.read<string>(StorageType.Local, LocalStorageKey.Username)).subscribe(v => {
-            this.storage.local(LocalStorageKey.Username, null);
-            this.storage.local(LocalStorageKey.Password, null);
-            this.storage.local(LocalStorageKey.Token, null);
             this.navigate('a_signin');
-            this.storage.session(SessionStorageKey.UserInformation, null);
-            this.storage.cache(CacheStorageKey.CurrentCardAction, null);
-            this.storage.cache(CacheStorageKey.PreviousCardAction, null);
             this.message.prepare().tag(Messages.Notice).value<Notice>({
                 icon: 'account_box',
                 title: `Sign out`,
@@ -102,6 +96,7 @@ export class ApplicationComponent implements OnInit, AfterViewInit, OnDestroy {
                 content: `Your account information was removed from this browser successfully.`
             }).go();
         }, (error: ServerData) => {
+            console.log(error);
             var notice: string = 'Request was rejected by server';
             if (error.message == ServerMessage.User.OperationDenied)
                 notice = 'You can only sign out yourself'

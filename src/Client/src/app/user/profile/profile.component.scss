@@ -4,8 +4,7 @@
     width: 100%;
     header {
         background-color: $system-body-bg;
-        padding-top: 20px;
-        margin-bottom: 80px;
+        padding-top: 50px;
         .logo {
             display: block;
             position: absolute;
@@ -13,11 +12,57 @@
             height: 150px;
             font-size: 150px;
             line-height: 150px;
-            margin-top: -30px;
+            bottom: -50px;
         }
         p {
             padding-left: 170px;
             font-size: 28px;
+        }
+    }
+    .group {
+        font-size: 18px;
+        padding: 10px 0 40px 170px; 
+        display: block;
+    }
+    @media (min-width: $screen-sm-min) {
+        .panel {
+            min-height: 200px;
+        }
+    }
+    .permission {
+        & > p {
+            font-size: 18px;
+            text-align: center;
+        }
+        ul {
+            list-style: none;
+            margin: 10px;
+            padding: 0;
+            li {
+                list-style: none;
+                padding: 5px;
+                display: flex;
+                &:first-child {
+                    font-size: 16px;
+                    padding-bottom: 5px;
+                }
+                md-icon {
+                    width: 20px;
+                    height: 20px;
+                    font-size: 20px;
+                    line-height: 20px;
+                    color: $system-brand-danger;
+                    &.can {
+                        color: $system-brand-primary;
+                    }
+                }
+                span {
+                    font-size: 14px;
+                    line-height: 20px;
+                    flex-grow: 1;
+                    padding-left: 5px;
+                }
+            }
         }
     }
 }

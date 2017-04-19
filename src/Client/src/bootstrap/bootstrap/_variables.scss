@@ -208,7 +208,7 @@ $panel-border-radius:         $border-radius-base !default;
 //** Border color for elements within panels
 $panel-inner-border:          $system-border-color !default;
 $panel-footer-bg:             $panel-bg !default;
-$panel-default-text:          $gray-dark !default;
+$panel-default-text:          $system-text-color !default;
 $panel-default-border:        $panel-inner-border !default;
 $panel-default-heading-bg:    $panel-bg !default;
 $panel-primary-text:          $text-color !default;

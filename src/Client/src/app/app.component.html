@@ -24,7 +24,7 @@
                 <md-icon>open_in_new</md-icon>
             </button>
             <button md-button (click)="toggleNotice()">
-                <md-icon>notifications</md-icon><span class="notice-count">{{noticeCount}}</span>
+                <md-icon>notifications</md-icon><span [hidden]="noticeCount==0" class="notice-count">{{noticeCount}}</span>
             </button>
         </md-toolbar>
         <div class="content-placeholder">

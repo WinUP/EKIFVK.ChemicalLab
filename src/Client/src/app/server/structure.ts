@@ -47,7 +47,6 @@ export const Messages = {
     PushNoticeHistory: 'PushNoticeHistory',
     CardActionClick: 'CardActionClick',
     TreeNodeClick: 'TreeNodeClick',
-    Navigation: 'Navigation',
     UpdateUserInformation: 'UpdateUserInformation'
 };
 
@@ -148,4 +147,11 @@ export interface UserInformation {
     accessAddress?: string,
     disabled?: boolean,
     update?: string
+}
+
+export interface ChangeUserInformation {
+    displayName?: string | boolean,
+    password?: string | boolean,
+    userGroup?: string | boolean,
+    disabled?: boolean
 }

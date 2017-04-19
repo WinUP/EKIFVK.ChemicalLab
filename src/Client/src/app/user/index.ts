@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpModule } from '@angular/http';
-import { MdInputModule, MdButtonModule, MdIconModule } from '@angular/material';
+import { MdInputModule, MdButtonModule, MdIconModule, MdListModule } from '@angular/material';
 import { DesignSupportModule } from '../design-support'
 import { ServerModule } from '../server';
 import { SigninComponent } from './signin/signin.component';
@@ -17,6 +17,7 @@ import { UserService } from './user.service';
         MdInputModule,
         MdButtonModule,
         MdIconModule,
+        MdListModule,
         DesignSupportModule,
         ServerModule
     ],
